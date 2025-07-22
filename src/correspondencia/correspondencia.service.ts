@@ -7,6 +7,9 @@ import {
   TipoSolicitud,
 } from './entities/correspondencia.entity';
 import { CreateCorrespondenciaDto } from './dto/create-correspondencia.dto';
+import { NotFoundException } from '@nestjs/common'; // Asegúrate de añadir NotFoundException
+import { UpdateCorrespondenciaDto } from './dto/update-correspondencia.dto'; // Añade esta importación
+
 
 @Injectable()
 export class CorrespondenciaService {
@@ -28,11 +31,30 @@ export class CorrespondenciaService {
     );
 
   return this.correspondenciaRepository.save(nuevaCorrespondencia);
-}
+  }
 
-findAll(): Promise<Correspondencia[]> {
-  return this.correspondenciaRepository.find();
+async findOne(id: number): Promise<Correspondencia> {
+  const registro = await this.correspondenciaRepository.findOneBy({ id });
+  if (!registro) {
+    throw new NotFoundException(`El registro con el id ${id} no fue encontrado.`);
+  }
+  return registro;
 }
+/**
+ * Elimina un registro de correspondencia por su ID.
+ */
+async remove(id: number): Promise<void> {
+  const result = await this.correspondenciaRepository.delete(id);
+  if (result.affected === 0) {
+    throw new Error(`Correspondencia with id ${id} not found.`);
+  }
+}
+  /**
+   * Obtiene todas las correspondencias.
+   */
+  findAll(): Promise<Correspondencia[]> {
+    return this.correspondenciaRepository.find();
+  }
 
   private calcularFechaVencimiento(
     fechaInicio: Date,
@@ -55,4 +77,15 @@ findAll(): Promise<Correspondencia[]> {
 
     return null;
   }
+  /**
+   * Actualiza un registro de correspondencia.
+   */
+async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto) {
+  const registro = await this.findOne(id); // Reutilizamos findOne para verificar que existe
+  const registroActualizado = this.correspondenciaRepository.merge(
+    registro,
+    updateCorrespondenciaDto,
+  );
+  return this.correspondenciaRepository.save(registroActualizado);
+}
 }
