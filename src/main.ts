@@ -1,4 +1,3 @@
-// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { join } from 'path';
@@ -10,9 +9,12 @@ config();
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Esta línea le dice a NestJS que sirva los archivos de la carpeta 'public'
   app.useStaticAssets(join(__dirname, '..', 'public'));
 
-  await app.listen(3000);
+  app.enableCors(); // permite peticiones desde otras IPs
+
+  await app.listen(3000, '0.0.0.0'); // escucha desde otras máquinas
+  console.log('¡Servidor actualizado!');
 }
+
 bootstrap();

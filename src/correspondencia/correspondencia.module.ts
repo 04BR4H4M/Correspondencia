@@ -4,10 +4,11 @@ import { CorrespondenciaService } from './correspondencia.service';
 import { CorrespondenciaController } from './correspondencia.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Correspondencia } from './entities/correspondencia.entity';
+import { GoogleDriveService } from '../google-drive/google-drive.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Correspondencia])], // <--- ESTA LÍNEA ES LA CLAVE
   controllers: [CorrespondenciaController],
-  providers: [CorrespondenciaService],
+  providers: [CorrespondenciaService, GoogleDriveService],
 })
 export class CorrespondenciaModule {}

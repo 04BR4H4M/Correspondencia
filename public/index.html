@@ -1,217 +1,206 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Gestión de Correspondencia</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  </head>
-  <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="#">Concejo Municipal de Nilo - Cundinamarca </a>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gestión de Correspondencia</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    td.text-truncate {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    td.text-nowrap {
+      white-space: nowrap;
+    }
+    th, td {
+      vertical-align: middle !important;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">Concejo Municipal de Nilo - Cundinamarca</a>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+      <h1>Sistema de Gestión de Correspondencia</h1>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registroModal">Registrar Nuevo</button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row g-3 my-3">
+      <div class="col-sm-8">
+        <input type="text" class="form-control" id="searchInput" placeholder="Buscar por radicado, remitente o asunto..." />
       </div>
-    </nav>
-
-    <main class="container mt-4">
-      <div class="d-flex justify-content-between align-items-center">
-        <h1>Sistema de Gestión de Correspondencia</h1>
-        <!-- ✅ Botón que abre el modal correctamente -->
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registroModal">
-          Registrar Nuevo
-        </button>
-      </div>
-
-      <hr />
-
-      <table class="table table-striped table-hover mt-4">
-       <thead class="table-dark">
-  <tr>
-    <th scope="col">ID</th>
-    <th scope="col">Radicado</th>
-    <th scope="col">Remitente</th>
-    <th scope="col">Tipo de Solicitud</th>
-    <th scope="col">Asunto</th>
-    <th scope="col">Fecha Vencimiento</th>
-    <th scope="col">Estado</th>
-    <th scope="col">Acciones</th>
-  </tr>
-</thead>
-        <tbody></tbody>
-      </table>
-    </main>
-
-    <!-- ✅ Modal -->
-    <div class="modal fade" id="registroModal" tabindex="-1" aria-labelledby="registroModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h1 class="modal-title fs-5" id="registroModalLabel">Registrar Nueva Correspondencia</h1>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-          </div>
-          <div class="modal-body">
-            <form id="registroForm">
-              <div class="mb-3">
-                <label for="radicado" class="form-label">Número de Radicado</label>
-                <input type="text" class="form-control" id="radicado" required />
-              </div>
-              <div class="mb-3">
-                <label for="remitente" class="form-label">Remitente</label>
-                <input type="text" class="form-control" id="remitente" required />
-              </div>
-              <div class="mb-3">
-                <label for="asunto" class="form-label">Asunto</label>
-                <textarea class="form-control" id="asunto" rows="3" required></textarea>
-              </div>
-              <div class="mb-3">
-                <label for="tipoSolicitud" class="form-label">Tipo de Solicitud</label>
-                <select class="form-select" id="tipoSolicitud" required>
-                  <option value="" disabled selected>Seleccione un tipo...</option>
-                  <option value="Derecho de Petición">Derecho de Petición</option>
-                  <option value="Queja">Queja</option>
-                  <option value="Reclamo">Reclamo</option>
-                  <option value="Sugerencia">Sugerencia</option>
-                  <option value="Invitación">Invitación</option>
-                  <option value="Otro">Otro</option>
-                </select>
-              </div>
-            </form>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary" form="registroForm">Guardar Registro</button>
-          </div>
-        </div>
+      <div class="col-sm-4">
+        <select class="form-select" id="statusFilter">
+          <option value="">Todos los estados</option>
+          <option value="Recibido">Recibido</option>
+          <option value="En Proceso">En Proceso</option>
+          <option value="Respondido">Respondido</option>
+        </select>
       </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-  // Declarar variables globales
-  const modalTitle = document.getElementById('registroModalLabel');
-  let idParaActualizar = null;
+    <!-- Tabla -->
+    <table class="table table-striped table-hover mt-4">
+      <thead class="table-dark">
+       <tr>
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const tbody = document.querySelector('table tbody');
-    const registroForm = document.getElementById('registroForm');
-    const modalElement = document.getElementById('registroModal');
-    const modal = new bootstrap.Modal(modalElement);
+          <th scope="col">ID</th>
+          <th scope="col">Radicado</th>
+          <th scope="col">Fecha Recibido</th>
+          <th scope="col">Remitente</th>
+          <th scope="col">Cargo - Entidad</th>
+          <th scope="col">Forma de Envío</th>
+          <th scope="col">Tipo de Solicitud</th>
+          <th scope="col">Asunto</th>
+          <th scope="col">Fecha Vencimiento</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Acciones</th>
+          <th scope="col">Adjuntos</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
 
-        // Cargar registros existentes
-        fetch('http://localhost:3000/correspondencia')
-          .then((response) => response.json())
-          .then((data) => {
-            tbody.innerHTML = '';
-            data.forEach((registro) => {
-              const fila = `
-                 <tr>
-    <td>${registro.id}</td>
-    <td>${registro.radicado}</td>
-    <td>${registro.remitente}</td>  
-    <td>${registro.tipoSolicitud}</td>
-    <td>${registro.asunto}</td>
-    <td>${registro.fechaVencimiento || 'N/A'}</td>
-    <td><span class="badge bg-success">${registro.estado}</span></td>
-<td>
-  <button class="btn btn-warning btn-sm btn-editar" data-id="${registro.id}">Editar</button>
-  <button class="btn btn-danger btn-sm btn-eliminar" data-id="${registro.id}">Eliminar</button>
-</td>
-  </tr>
-              `;
-              tbody.innerHTML += fila;
-            });
-          })
-          .catch((error) => {
-            console.error('Error al obtener la correspondencia:', error);
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No se pudo cargar la información.</td></tr>';
-          });
+    <!-- Paginación -->
+    <nav aria-label="Navegación de página">
+      <ul class="pagination justify-content-center" id="pagination-controls"></ul>
+    </nav>
+  </main>
 
-    // Evento para guardar (crear/actualizar)
-    registroForm.addEventListener('submit', (event) => {
-      event.preventDefault();
+  <!-- Modal Registro -->
+  <div class="modal fade" id="registroModal" tabindex="-1" aria-labelledby="registroModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="registroModalLabel">Registrar Nueva Correspondencia</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="registroForm">
+            <div class="mb-3">
+              <label for="radicado" class="form-label">Número de Radicado</label>
+              <input type="text" class="form-control" id="radicado" required />
+            </div>
+            <div class="mb-3">
+              <label for="fechaRecibido" class="form-label">Fecha de Recibido</label>
+              <input type="date" class="form-control" id="fechaRecibido" required />
+            </div>
+            <div class="mb-3">
+              <label for="remitente" class="form-label">Remitente</label>
+              <input type="text" class="form-control" id="remitente" required />
+            </div>
+            <div class="mb-3">
+              <label for="cargoEntidad" class="form-label">Cargo - Entidad</label>
+              <input type="text" class="form-control" id="cargoEntidad" />
+            </div>
+            <div class="mb-3">
+              <label for="formaEnvio" class="form-label">Forma de Envío</label>
+              <select class="form-select" id="formaEnvio" required>
+                <option value="" disabled selected>Seleccione una forma de envío...</option>
+                <option value="fisico">Físico</option>
+                <option value="correo">Correo</option>
+                <option value="pagina">Página</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="asunto" class="form-label">Asunto</label>
+              <textarea class="form-control" id="asunto" rows="3" required></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="observaciones" class="form-label">Observaciones</label>
+              <textarea class="form-control" id="observaciones" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="tipoSolicitud" class="form-label">Tipo de Solicitud</label>
+              <select class="form-select" id="tipoSolicitud" required>
+                <option value="" disabled selected>Seleccione un tipo...</option>
+                <option value="Derecho de Petición">Derecho de Petición</option>
+                <option value="Queja">Queja</option>
+                <option value="Reclamo">Reclamo</option>
+                <option value="Sugerencia">Sugerencia</option>
+                <option value="Invitación">Invitación</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" form="registroForm">Guardar Registro</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      const datos = {
-        radicado: document.getElementById('radicado').value,
-        remitente: document.getElementById('remitente').value,
-        asunto: document.getElementById('asunto').value,
-        tipoSolicitud: document.getElementById('tipoSolicitud').value,
-      };
+  <!-- Modal Detalle -->
+  <div class="modal fade" id="detalleModal" tabindex="-1" aria-labelledby="detalleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="detalleModalLabel">Detalles de la Correspondencia</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p><strong>ID:</strong> <span id="detalle-id"></span></p>
+          <p><strong>Radicado:</strong> <span id="detalle-radicado"></span></p>
+          <p><strong>Remitente:</strong> <span id="detalle-remitente"></span></p>
+          <p><strong>Tipo de Solicitud:</strong> <span id="detalle-tipoSolicitud"></span></p>
+          <p><strong>Asunto:</strong> <span id="detalle-asunto"></span></p>
+          <p><strong>Fecha de Recibido:</strong> <span id="detalle-fechaRecibido"></span></p>
+          <p><strong>Fecha de Vencimiento:</strong> <span id="detalle-fechaVencimiento"></span></p>
+          <p><strong>Estado:</strong> <span id="detalle-estado"></span></p>
+          <p><strong>Cargo - Entidad:</strong> <span id="detalle-cargoEntidad"></span></p>
+          <p><strong>Forma de Envío:</strong> <span id="detalle-formaEnvio"></span></p>
+          <p><strong>Fecha de Contestación:</strong> <span id="detalle-fechaContestacion"></span></p>
+          <p><strong>Observaciones:</strong> <span id="detalle-observaciones"></span></p>
+          <p><strong>Adjuntos:</strong><span id="detalle-adjuntos"></span></p>  
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      const esActualizacion = idParaActualizar !== null;
-      const url = esActualizacion
-        ? `http://localhost:3000/correspondencia/${idParaActualizar}`
-        : 'http://localhost:3000/correspondencia';
-      const method = esActualizacion ? 'PATCH' : 'POST';
+  <div class="modal fade" id="adjuntarModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5">Adjuntar Archivo</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="adjuntarForm">
+          <p>Adjuntar archivo para el registro ID: <strong id="adjuntar-id"></strong></p>
+          <div class="mb-3">
+            <label for="fileInput" class="form-label">Seleccionar archivo</label>
+            <input class="form-control" type="file" id="fileInput" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" form="adjuntarForm">Subir Archivo</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-      fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos),
-      })
-        .then((response) => {
-          if (!response.ok) throw new Error('La operación falló');
-          return response.json();
-        })
-        .then(() => {
-          modal.hide();
-          location.reload();
-        })
-        .catch((error) => {
-          console.error('Error al guardar:', error);
-          alert('Hubo un error al guardar los cambios.');
-        });
-    });
-
-    // Limpiar formulario al cerrar modal
-    modalElement.addEventListener('hidden.bs.modal', () => {
-      registroForm.reset();
-      modalTitle.textContent = 'Registrar Nueva Correspondencia';
-      idParaActualizar = null;
-    });
-
-    // Evento para eliminar
-    tbody.addEventListener('click', (event) => {
-      if (event.target.classList.contains('btn-eliminar')) {
-        const id = event.target.dataset.id;
-        if (confirm(`¿Estás seguro de que deseas eliminar el registro con ID ${id}?`)) {
-          fetch(`http://localhost:3000/correspondencia/${id}`, {
-            method: 'DELETE',
-          })
-            .then((response) => {
-              if (!response.ok) throw new Error('Error al eliminar el registro.');
-              location.reload();
-            })
-            .catch((error) => {
-              console.error('Error:', error);
-              alert('No se pudo eliminar el registro.');
-            });
-        }
-      }
-      // Evento para editar
-      if (event.target.classList.contains('btn-editar')) {
-        const id = event.target.dataset.id;
-        fetch(`http://localhost:3000/correspondencia/${id}`)
-          .then((response) => {
-            if (!response.ok) throw new Error('Registro no encontrado');
-            return response.json();
-          })
-          .then((registro) => {
-            document.getElementById('radicado').value = registro.radicado;
-            document.getElementById('remitente').value = registro.remitente;
-            document.getElementById('asunto').value = registro.asunto;
-            document.getElementById('tipoSolicitud').value = registro.tipoSolicitud;
-            modalTitle.textContent = `Editando Registro ID: ${id}`;
-            idParaActualizar = id;
-            modal.show();
-          })
-          .catch((error) => {
-            console.error('Error al obtener datos para editar:', error);
-            alert('No se pudieron obtener los datos del registro.');
-          });
-      }
-    });
-  });
-</script>
-  </body>
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="./correspondencia.js"></script>
+</body>
 </html>

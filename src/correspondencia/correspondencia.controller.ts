@@ -1,44 +1,66 @@
 // src/correspondencia/correspondencia.controller.ts
-import { Controller, Get, Post, Body, Param, Delete, Patch } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Patch,
+  Query,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
 import { CorrespondenciaService } from './correspondencia.service';
 import { CreateCorrespondenciaDto } from './dto/create-correspondencia.dto';
 import { UpdateCorrespondenciaDto } from './dto/update-correspondencia.dto';
-import { MailerService } from '@nestjs-modules/mailer';
+import { EstadoSolicitud } from './entities/correspondencia.entity';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('correspondencia')
 export class CorrespondenciaController {
   constructor(
     private readonly correspondenciaService: CorrespondenciaService,
-    private readonly mailerService: MailerService
   ) {}
 
-  @Get('test/enviar-correo')
- probarEnvioDeCorreo() {
-  return this.correspondenciaService.enviarCorreoDePrueba();
-}
-
-  /**
-   * Endpoint para crear un nuevo registro de correspondencia.
-   * URL: POST /correspondencia
-   */
   @Post()
   create(@Body() createCorrespondenciaDto: CreateCorrespondenciaDto) {
     return this.correspondenciaService.create(createCorrespondenciaDto);
   }
 
+  /**
+   * ✅ Obtener todas las correspondencias (con filtros y paginación)
+   * GET /correspondencia?search=...&estado=...
+   */
   @Get()
-  findAll() {
-    return this.correspondenciaService.findAll();
+  findAll(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('search') search?: string,
+    @Query('estado') estado?: EstadoSolicitud,
+  ) {
+    const pageNumber = parseInt(page, 10) || 1;
+    const limitNumber = parseInt(limit, 10) || 10;
+
+    return this.correspondenciaService.findAll(
+      { page: pageNumber, limit: limitNumber },
+      search,
+      estado,
+    );
   }
 
+  /**
+   * ✅ Obtener una correspondencia por ID
+   * GET /correspondencia/:id
+   */
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.correspondenciaService.findOne(+id);
   }
 
   /**
-   * Endpoint para eliminar una correspondencia por su id.
-   * URL: DELETE /correspondencia/:id
+   * ✅ Eliminar correspondencia por ID
+   * DELETE /correspondencia/:id
    */
   @Delete(':id')
   remove(@Param('id') id: string) {
@@ -46,8 +68,8 @@ export class CorrespondenciaController {
   }
 
   /**
-   * Endpoint para actualizar parcialmente una correspondencia.
-   * URL: PATCH /correspondencia/:id
+   * ✅ Actualizar correspondencia
+   * PATCH /correspondencia/:id
    */
   @Patch(':id')
   update(
@@ -55,5 +77,18 @@ export class CorrespondenciaController {
     @Body() updateCorrespondenciaDto: UpdateCorrespondenciaDto,
   ) {
     return this.correspondenciaService.update(+id, updateCorrespondenciaDto);
+  }
+
+  /**
+   * ✅ Adjuntar archivo (subir a Google Drive)
+   * POST /correspondencia/:id/adjuntar
+   */
+  @Post(':id/adjuntar')
+  @UseInterceptors(FileInterceptor('file'))
+  adjuntarArchivo(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.correspondenciaService.adjuntarArchivo(+id, file);
   }
 }

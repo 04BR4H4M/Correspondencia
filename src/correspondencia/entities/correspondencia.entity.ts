@@ -15,6 +15,11 @@ export enum EstadoSolicitud {
     EN_PROCESO = 'En Proceso',
     RESPONDIDO = 'Respondido',
 }
+export enum FormaEnvio {
+    FISICO = 'Físico',
+    CORREO = 'Correo',
+    PAGINA = 'Página',
+}
 
 @Entity({ name: 'correspondencia' })
 export class Correspondencia {
@@ -39,4 +44,21 @@ fechaRecibido: Date;
 fechaVencimiento: Date | null;
     @Column({ type: 'enum', enum: EstadoSolicitud, default: EstadoSolicitud.RECIBIDO })
     estado: EstadoSolicitud;
+    // ... dentro de la clase Correspondencia
+
+@Column({ type: 'date', nullable: true }) // Nueva columna
+fechaContestacion: Date | null;
+
+@Column({ type: 'varchar', length: 255, nullable: true }) // Nueva columna
+cargoEntidad: string;
+
+@Column({ type: 'varchar', length: 255, nullable: true }) // Nueva columna
+archivosAnexos: string; // Guardaremos la ruta o nombre del archivo aquí
+
+@Column({ type: 'varchar', length: 50, nullable: true }) // Nueva columna
+formaEnvio: string;
+
+@Column({ type: 'text', nullable: true }) // Nueva columna
+observaciones: string;
+
 }
