@@ -16,6 +16,7 @@ import { CreateCorrespondenciaDto } from './dto/create-correspondencia.dto';
 import { UpdateCorrespondenciaDto } from './dto/update-correspondencia.dto';
 import { EstadoSolicitud } from './entities/correspondencia.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { BulkDeleteDto } from './dto/bulk-delete.dto'; // Asegúrate de tener este DTO para manejar la eliminación masiva
 
 @Controller('correspondencia')
 export class CorrespondenciaController {
@@ -38,12 +39,14 @@ export class CorrespondenciaController {
     @Query('limit') limit: string = '10',
     @Query('search') search?: string,
     @Query('estado') estado?: EstadoSolicitud,
+    @Query('sortBy') sortBy: string = 'id',
+    @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'ASC',
   ) {
     const pageNumber = parseInt(page, 10) || 1;
     const limitNumber = parseInt(limit, 10) || 10;
 
     return this.correspondenciaService.findAll(
-      { page: pageNumber, limit: limitNumber },
+      { page: pageNumber, limit: limitNumber, sortBy, sortOrder },
       search,
       estado,
     );
@@ -91,4 +94,14 @@ export class CorrespondenciaController {
   ) {
     return this.correspondenciaService.adjuntarArchivo(+id, file);
   }
+  // Dentro de CorrespondenciaController
+@Get('test/verificar-drive')
+verificarDrive() {
+  return this.correspondenciaService.testDriveAccess();
+}
+
+@Post('bulk-delete')
+removeMany(@Body() bulkDeleteDto: BulkDeleteDto) {
+  return this.correspondenciaService.removeMany(bulkDeleteDto.ids);
+}
 }

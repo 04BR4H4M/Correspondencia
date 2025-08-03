@@ -1,7 +1,6 @@
 // src/correspondencia/dto/update-correspondencia.dto.ts
-import { IsEnum, IsString, IsOptional } from 'class-validator';
+import { IsEnum, IsString, IsOptional, IsDateString } from 'class-validator';
 import { EstadoSolicitud, TipoSolicitud } from '../entities/correspondencia.entity'; // Importa EstadoSolicitud
-import { IsDateString } from 'class-validator';
 
 export class UpdateCorrespondenciaDto {
   @IsString()

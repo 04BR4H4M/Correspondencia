@@ -10,32 +10,54 @@ export class GoogleDriveService {
   constructor() {
     const auth = new google.auth.GoogleAuth({
       keyFile: join(process.cwd(), 'google-credentials.json'),
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
+      scopes: ['https://www.googleapis.com/auth/drive'],
     });
     this.drive = google.drive({ version: 'v3', auth });
   }
+async uploadFile(file: Express.Multer.File): Promise<string> {
+  const bufferStream = new stream.PassThrough();
+  bufferStream.end(file.buffer);
 
-  async uploadFile(file: Express.Multer.File): Promise<string> {
-    const bufferStream = new stream.PassThrough();
-    bufferStream.end(file.buffer);
+  const response = await this.drive.files.create({
+    requestBody: {
+      name: `${new Date().getTime()}-${file.originalname}`,
+      parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+    },
+    media: {
+      mimeType: file.mimetype,
+      body: bufferStream,
+    },
+    fields: 'id, webViewLink',
+    supportsAllDrives: true, // <-- ¡ESTA LÍNEA ES CRUCIAL!
+  });
 
-    const response = await this.drive.files.create({
-      requestBody: {
-        name: `${new Date().getTime()}-${file.originalname}`,
-        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
-      },
-      media: {
-        mimeType: file.mimetype,
-        body: bufferStream,
-      },
-      fields: 'id, webViewLink',
+  // Con Unidades Compartidas, no necesitamos transferir propiedad.
+  // Pero sí necesitamos hacer el archivo legible para cualquiera con el enlace.
+  await this.drive.permissions.create({
+    fileId: response.data.id,
+    requestBody: {
+      role: 'reader',
+      type: 'anyone',
+    },
+    supportsAllDrives: true, // <-- AÑADIR TAMBIÉN AQUÍ
+  });
+
+  return response.data.webViewLink;
+}
+
+async verifyFolderAccess() {
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  console.log(`Verificando acceso a la carpeta con ID: ${folderId}`);
+  try {
+    const response = await this.drive.files.get({
+      fileId: folderId,
+      fields: 'id, name',
     });
-
-    await this.drive.permissions.create({
-      fileId: response.data.id,
-      requestBody: { role: 'reader', type: 'anyone' },
-    });
-
-    return response.data.webViewLink;
+    console.log('¡Acceso verificado! Nombre de la carpeta:', response.data.name);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('FALLO al verificar acceso a la carpeta:', error.response?.data?.error || error.message);
+    return { success: false, error: error.response?.data?.error || error.message };
   }
+}
 }

@@ -1,32 +1,80 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // --- CONSTANTES DE ELEMENTOS DEL DOM ---
+  // --- ELEMENTOS PRINCIPALES ---
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  const deleteSelectedButton = document.getElementById('deleteSelectedButton');
   const tbody = document.querySelector('table tbody');
   const searchInput = document.getElementById('searchInput');
   const statusFilter = document.getElementById('statusFilter');
   const paginationControls = document.getElementById('pagination-controls');
 
-  // Modal de Registro/Edición
   const registroModalElement = document.getElementById('registroModal');
   const registroModal = new bootstrap.Modal(registroModalElement);
   const registroForm = document.getElementById('registroForm');
   const modalTitle = document.getElementById('registroModalLabel');
 
-  // Modal de Detalles
   const detalleModalElement = document.getElementById('detalleModal');
   const detalleModal = new bootstrap.Modal(detalleModalElement);
 
-  // Modal de Adjuntar
   const adjuntarModalElement = document.getElementById('adjuntarModal');
   const adjuntarModal = new bootstrap.Modal(adjuntarModalElement);
   const adjuntarForm = document.getElementById('adjuntarForm');
-  let idParaAdjuntar = null;
 
-  // --- ESTADO DE LA APLICACIÓN ---
+  let idParaAdjuntar = null;
   let currentPage = 1;
   const limit = 10;
   let sortBy = 'id';
   let sortOrder = 'ASC';
   let idParaActualizar = null;
+
+  // --- BOTÓN ELIMINAR MASIVO ---
+  const toggleDeleteButton = () => {
+    const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+    if (selectedCheckboxes.length > 0) {
+      deleteSelectedButton.classList.remove('d-none');
+    } else {
+      deleteSelectedButton.classList.add('d-none');
+    }
+  };
+
+  selectAllCheckbox.addEventListener('click', (event) => {
+    const isChecked = event.target.checked;
+    document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = isChecked);
+    toggleDeleteButton();
+  });
+
+  tbody.addEventListener('change', (event) => {
+    if (event.target.classList.contains('row-checkbox')) {
+      toggleDeleteButton();
+    }
+  });
+
+  deleteSelectedButton.addEventListener('click', () => {
+    const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+      .map(cb => parseInt(cb.value));
+
+    if (selectedIds.length === 0) {
+      alert('No hay registros seleccionados.');
+      return;
+    }
+
+    if (confirm(`¿Eliminar ${selectedIds.length} registros seleccionados?`)) {
+      fetch('http://localhost:3000/correspondencia/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('Falló el borrado masivo.');
+          selectAllCheckbox.checked = false;
+          toggleDeleteButton();
+          cargarCorrespondencia(currentPage);
+        })
+        .catch(err => {
+          console.error(err);
+          alert('No se pudieron eliminar los registros.');
+        });
+    }
+  });
 
   // --- FUNCIONES AUXILIARES ---
   const getStatusBadge = (estado) => {
@@ -38,7 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // --- FUNCIÓN PRINCIPAL PARA CARGAR DATOS ---
   const cargarCorrespondencia = (page = 1) => {
     currentPage = page;
     const searchTerm = searchInput.value.trim();
@@ -55,20 +102,20 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach(registro => {
           const fila = `
             <tr class="align-middle">
+              <td><input class="form-check-input row-checkbox" type="checkbox" value="${registro.id}"></td>
               <td>${registro.id}</td>
               <td>${registro.radicado}</td>
-              <td>${registro.fechaRecibido}</td>
               <td>${registro.remitente}</td>
-              <td>${registro.cargoEntidad || ''}</td>
-              <td>${registro.formaEnvio || ''}</td>
-              <td>${registro.tipoSolicitud}</td>
               <td>${registro.asunto}</td>
+              <td>${registro.fechaRecibido}</td>
               <td>${registro.fechaVencimiento || 'N/A'}</td>
+              <td>${registro.fechaContestacion || 'N/A'}</td>
+              <td>${registro.observaciones || ''}</td>
               <td>
-                <select class="form-select form-select-sm status-select ${getStatusBadge(registro.estado)} ${registro.estado === 'Respondido' ? 'text-white' : ''}" data-id="${registro.id}">
-                  <option value="Recibido">Recibido</option>
-                  <option value="En Proceso">En Proceso</option>
-                  <option value="Respondido">Respondido</option>
+                <select class="form-select form-select-sm status-select ${getStatusBadge(registro.estado).join(' ')}" data-id="${registro.id}">
+                  <option value="Recibido" ${registro.estado === 'Recibido' ? 'selected' : ''}>Recibido</option>
+                  <option value="En Proceso" ${registro.estado === 'En Proceso' ? 'selected' : ''}>En Proceso</option>
+                  <option value="Respondido" ${registro.estado === 'Respondido' ? 'selected' : ''}>Respondido</option>
                 </select>
               </td>
               <td class="d-grid gap-1 d-md-flex">
@@ -79,16 +126,14 @@ document.addEventListener('DOMContentLoaded', () => {
               <td>
                 <button class="btn btn-secondary btn-sm btn-adjuntar" data-id="${registro.id}">Adjuntar</button>
               </td>
-            </tr>
-          `;
+            </tr>`;
           tbody.innerHTML += fila;
         });
         renderizarPaginacion(total);
       })
-      .catch(err => console.error('Error:', err));
+      .catch(err => console.error(err));
   };
 
-  // --- FUNCIÓN PARA RENDERIZAR PAGINACIÓN ---
   const renderizarPaginacion = (total) => {
     const totalPaginas = Math.ceil(total / limit);
     paginationControls.innerHTML = '';
@@ -98,25 +143,21 @@ document.addEventListener('DOMContentLoaded', () => {
     paginationControls.innerHTML += `
       <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
         <a class="page-link" href="#" data-page="${currentPage - 1}">Anterior</a>
-      </li>
-    `;
+      </li>`;
 
     for (let i = 1; i <= totalPaginas; i++) {
       paginationControls.innerHTML += `
         <li class="page-item ${i === currentPage ? 'active' : ''}">
           <a class="page-link" href="#" data-page="${i}">${i}</a>
-        </li>
-      `;
+        </li>`;
     }
 
     paginationControls.innerHTML += `
       <li class="page-item ${currentPage === totalPaginas ? 'disabled' : ''}">
         <a class="page-link" href="#" data-page="${currentPage + 1}">Siguiente</a>
-      </li>
-    `;
+      </li>`;
   };
 
-  // --- EVENT LISTENERS ---
   searchInput.addEventListener('input', () => cargarCorrespondencia(1));
   statusFilter.addEventListener('change', () => cargarCorrespondencia(1));
 
@@ -141,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // --- EVENTOS DEL BODY ---
   tbody.addEventListener('click', async (event) => {
     const target = event.target;
 
@@ -149,7 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const response = await fetch(`http://localhost:3000/correspondencia/${id}`);
         const registro = await response.json();
-
         document.getElementById('detalle-id').textContent = registro.id;
         document.getElementById('detalle-radicado').textContent = registro.radicado;
         document.getElementById('detalle-remitente').textContent = registro.remitente;
@@ -163,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('detalle-fechaContestacion').textContent = registro.fechaContestacion || 'N/A';
         document.getElementById('detalle-observaciones').textContent = registro.observaciones || 'N/A';
 
-        // Mostrar enlace de archivo adjunto
         const adjuntoContainer = document.getElementById('detalle-adjunto');
         if (registro.archivosAnexos) {
           adjuntoContainer.innerHTML = `<a href="${registro.archivosAnexos}" target="_blank">Ver Archivo en Drive</a>`;
@@ -172,8 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         detalleModal.show();
-      } catch (error) {
-        console.error('Error al obtener detalles:', error);
+      } catch (err) {
+        console.error(err);
       }
     }
 
@@ -182,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const response = await fetch(`http://localhost:3000/correspondencia/${id}`);
         const registro = await response.json();
-
         document.getElementById('radicado').value = registro.radicado;
         document.getElementById('remitente').value = registro.remitente;
         document.getElementById('asunto').value = registro.asunto;
@@ -190,31 +229,37 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('cargoEntidad').value = registro.cargoEntidad || '';
         document.getElementById('formaEnvio').value = registro.formaEnvio || '';
         document.getElementById('observaciones').value = registro.observaciones || '';
+        document.getElementById('fechaRecibido').value = registro.fechaRecibido || '';
+        document.getElementById('fechaContestacion').value = registro.fechaContestacion ? new Date(registro.fechaContestacion).toISOString().split('T')[0] : '';
 
         modalTitle.textContent = `Editando Registro ID: ${id}`;
         idParaActualizar = id;
         registroModal.show();
-      } catch (error) {
-        console.error('Error al obtener datos para editar:', error);
+      } catch (err) {
+        console.error(err);
       }
     }
 
     if (target.classList.contains('btn-eliminar')) {
       const id = target.dataset.id;
       if (confirm(`¿Eliminar registro ID ${id}?`)) {
-        fetch(`http://localhost:3000/correspondencia/${id}`, { method: 'DELETE' })
+        fetch(`http://localhost:3000/correspondencia/${id}`, {
+          method: 'DELETE'
+        })
           .then(res => {
-            if (!res.ok) throw new Error('Error al eliminar.');
+            if (!res.ok) throw new Error('Error al eliminar el registro.');
+            if (tbody.rows.length === 1 && currentPage > 1) {
+              currentPage--;
+            }
             cargarCorrespondencia(currentPage);
           })
           .catch(err => {
             console.error(err);
-            alert('Error al eliminar.');
+            alert('Error al eliminar el registro.');
           });
       }
     }
 
-    // --- Botón Adjuntar ---
     if (target.classList.contains('btn-adjuntar')) {
       idParaAdjuntar = target.dataset.id;
       document.getElementById('adjuntar-id').textContent = idParaAdjuntar;
@@ -222,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Cambiar estado
+  // --- CAMBIAR ESTADO ---
   tbody.addEventListener('change', async (event) => {
     if (event.target.classList.contains('status-select')) {
       const selectElement = event.target;
@@ -236,8 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
       })
         .then(res => {
           if (!res.ok) throw new Error('Error al actualizar estado.');
-          selectElement.classList.remove('bg-success', 'bg-warning', 'bg-secondary', 'text-white');
-          selectElement.classList.add(...getStatusBadge(nuevoEstado));
+          selectElement.className = `form-select form-select-sm status-select ${getStatusBadge(nuevoEstado).join(' ')}`;
         })
         .catch(err => {
           console.error(err);
@@ -246,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Subir archivo adjunto
+  // --- SUBIR ARCHIVO ADJUNTO ---
   adjuntarForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const fileInput = document.getElementById('fileInput');
@@ -258,26 +302,26 @@ document.addEventListener('DOMContentLoaded', () => {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`http://localhost:3000/correspondencia/${idParaAdjuntar}/adjuntar`, {
+      const res = await fetch(`http://localhost:3000/correspondencia/${idParaAdjuntar}/adjuntar`, {
         method: 'POST',
         body: formData,
       });
-      if (!response.ok) throw new Error('Falló la subida del archivo');
+
+      if (!res.ok) throw new Error('Falló la subida del archivo');
 
       adjuntarModal.hide();
       adjuntarForm.reset();
-      alert('Archivo subido con éxito!');
+      alert('Archivo subido con éxito');
       cargarCorrespondencia(currentPage);
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (err) {
+      console.error(err);
       alert('No se pudo subir el archivo.');
     }
   });
 
-  // Guardar formulario
+  // --- GUARDAR REGISTRO ---
   registroForm.addEventListener('submit', (event) => {
     event.preventDefault();
-
     const datos = {
       radicado: document.getElementById('radicado').value,
       fechaRecibido: document.getElementById('fechaRecibido').value,
@@ -289,21 +333,29 @@ document.addEventListener('DOMContentLoaded', () => {
       observaciones: document.getElementById('observaciones').value,
     };
 
+    const fechaContestacion = document.getElementById('fechaContestacion').value;
+    if (fechaContestacion) {
+      datos.fechaContestacion = fechaContestacion;
+    }
+
     const esActualizacion = idParaActualizar !== null;
-    const url = esActualizacion ? `http://localhost:3000/correspondencia/${idParaActualizar}` : 'http://localhost:3000/correspondencia';
+    const url = esActualizacion
+      ? `http://localhost:3000/correspondencia/${idParaActualizar}`
+      : 'http://localhost:3000/correspondencia';
+
     const method = esActualizacion ? 'PATCH' : 'POST';
 
     fetch(url, {
-      method: method,
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(datos),
     })
-      .then(response => response.ok ? response.json() : Promise.reject('Error al guardar'))
+      .then(res => res.ok ? res.json() : Promise.reject('Error al guardar'))
       .then(() => {
         registroModal.hide();
         cargarCorrespondencia();
       })
-      .catch(error => console.error('Error al guardar:', error));
+      .catch(err => console.error(err));
   });
 
   registroModalElement.addEventListener('hidden.bs.modal', () => {
