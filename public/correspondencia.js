@@ -26,112 +26,18 @@ document.addEventListener('DOMContentLoaded', () => {
   let sortOrder = 'ASC';
   let idParaActualizar = null;
 
-  // --- BOTÓN ELIMINAR MASIVO ---
-  const toggleDeleteButton = () => {
-    const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
-    if (selectedCheckboxes.length > 0) {
-      deleteSelectedButton.classList.remove('d-none');
-    } else {
-      deleteSelectedButton.classList.add('d-none');
-    }
-  };
-
-  selectAllCheckbox.addEventListener('click', (event) => {
-    const isChecked = event.target.checked;
-    document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = isChecked);
-    toggleDeleteButton();
-  });
-
-  tbody.addEventListener('change', (event) => {
-    if (event.target.classList.contains('row-checkbox')) {
-      toggleDeleteButton();
-    }
-  });
-
-  deleteSelectedButton.addEventListener('click', () => {
-    const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
-      .map(cb => parseInt(cb.value));
-
-    if (selectedIds.length === 0) {
-      alert('No hay registros seleccionados.');
-      return;
-    }
-
-    if (confirm(`¿Eliminar ${selectedIds.length} registros seleccionados?`)) {
-      fetch('http://localhost:3000/correspondencia/bulk-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedIds }),
-      })
-        .then(res => {
-          if (!res.ok) throw new Error('Falló el borrado masivo.');
-          selectAllCheckbox.checked = false;
-          toggleDeleteButton();
-          cargarCorrespondencia(currentPage);
-        })
-        .catch(err => {
-          console.error(err);
-          alert('No se pudieron eliminar los registros.');
-        });
-    }
-  });
-
   // --- FUNCIONES AUXILIARES ---
   const getStatusBadge = (estado) => {
     switch (estado) {
       case 'En Proceso': return ['bg-warning'];
       case 'Respondido': return ['bg-secondary', 'text-white'];
-      case 'Recibido':
       default: return ['bg-success', 'text-white'];
     }
   };
 
-  const cargarCorrespondencia = (page = 1) => {
-    currentPage = page;
-    const searchTerm = searchInput.value.trim();
-    const status = statusFilter.value;
-
-    let url = `http://localhost:3000/correspondencia?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`;
-    if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
-    if (status) url += `&estado=${encodeURIComponent(status)}`;
-
-    fetch(url)
-      .then(res => res.json())
-      .then(({ data, total }) => {
-        tbody.innerHTML = '';
-        data.forEach(registro => {
-          const fila = `
-            <tr class="align-middle">
-              <td><input class="form-check-input row-checkbox" type="checkbox" value="${registro.id}"></td>
-              <td>${registro.id}</td>
-              <td>${registro.radicado}</td>
-              <td>${registro.remitente}</td>
-              <td>${registro.asunto}</td>
-              <td>${registro.fechaRecibido}</td>
-              <td>${registro.fechaVencimiento || 'N/A'}</td>
-              <td>${registro.fechaContestacion || 'N/A'}</td>
-              <td>${registro.observaciones || ''}</td>
-              <td>
-                <select class="form-select form-select-sm status-select ${getStatusBadge(registro.estado).join(' ')}" data-id="${registro.id}">
-                  <option value="Recibido" ${registro.estado === 'Recibido' ? 'selected' : ''}>Recibido</option>
-                  <option value="En Proceso" ${registro.estado === 'En Proceso' ? 'selected' : ''}>En Proceso</option>
-                  <option value="Respondido" ${registro.estado === 'Respondido' ? 'selected' : ''}>Respondido</option>
-                </select>
-              </td>
-              <td class="d-grid gap-1 d-md-flex">
-                <button class="btn btn-info btn-sm btn-ver" data-id="${registro.id}">Ver</button>
-                <button class="btn btn-warning btn-sm btn-editar" data-id="${registro.id}">Editar</button>
-                <button class="btn btn-danger btn-sm btn-eliminar" data-id="${registro.id}">Eliminar</button>
-              </td>
-              <td>
-                <button class="btn btn-secondary btn-sm btn-adjuntar" data-id="${registro.id}">Adjuntar</button>
-              </td>
-            </tr>`;
-          tbody.innerHTML += fila;
-        });
-        renderizarPaginacion(total);
-      })
-      .catch(err => console.error(err));
+  const toggleDeleteButton = () => {
+    const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+    deleteSelectedButton.classList.toggle('d-none', selectedCheckboxes.length === 0);
   };
 
   const renderizarPaginacion = (total) => {
@@ -158,29 +64,151 @@ document.addEventListener('DOMContentLoaded', () => {
       </li>`;
   };
 
+  const cargarCorrespondencia = (page = 1) => {
+    currentPage = page;
+
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center"><div class="loading-spinner"></div> Cargando...</td></tr>';
+
+    const searchTerm = searchInput.value.trim();
+    const status = statusFilter.value;
+
+    let url = `http://localhost:3000/correspondencia?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`;
+    if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
+    if (status) url += `&estado=${encodeURIComponent(status)}`;
+
+    fetch(url)
+      .then(res => res.json())
+      .then(({ data, total }) => {
+        tbody.innerHTML = '';
+        data.forEach(registro => {
+          const fila = `
+<tr class="align-middle fade-in">
+  <td><input class="form-check-input row-checkbox" type="checkbox" value="${registro.id}"></td>
+  <td>${registro.id}</td>
+  <td>${registro.radicado}</td>
+
+  <td>
+    <div class="text-truncate-custom" title="${registro.remitente}">
+      ${registro.remitente.length > 30
+        ? registro.remitente.substring(0, 30) + '... <a href="#" class="ver-mas" data-id="${registro.id}">Ver más</a>'
+        : registro.remitente}
+    </div>
+  </td>
+
+  <td>
+    <div class="text-truncate-custom" title="${registro.asunto}">
+      ${registro.asunto.length > 40
+        ? registro.asunto.substring(0, 40) + '... <a href="#" class="ver-mas" data-id="${registro.id}">Ver más</a>'
+        : registro.asunto}
+    </div>
+  </td>
+
+  <td>${new Date(registro.fechaRecibido).toLocaleDateString('es-ES')}</td>
+  <td>${registro.fechaVencimiento ? new Date(registro.fechaVencimiento).toLocaleDateString('es-ES') : 'N/A'}</td>
+  <td>${registro.fechaContestacion ? new Date(registro.fechaContestacion).toLocaleDateString('es-ES') : 'N/A'}</td>
+
+  <td>
+    <div class="text-truncate-custom" title="${registro.observaciones || 'Sin observaciones'}">
+      ${(registro.observaciones && registro.observaciones.length > 40)
+        ? registro.observaciones.substring(0, 40) + '... <a href="#" class="ver-mas" data-id="${registro.id}">Ver más</a>'
+        : (registro.observaciones || '<em class="text-muted">Sin observaciones</em>')}
+    </div>
+  </td>
+
+  <td>
+    <select class="form-select form-select-sm status-select ${getStatusBadge(registro.estado).join(' ')}" data-id="${registro.id}">
+      <option value="Recibido" ${registro.estado === 'Recibido' ? 'selected' : ''}>📥 Recibido</option>
+      <option value="En Proceso" ${registro.estado === 'En Proceso' ? 'selected' : ''}>⚙️ En Proceso</option>
+      <option value="Respondido" ${registro.estado === 'Respondido' ? 'selected' : ''}>✅ Respondido</option>
+    </select>
+  </td>
+
+  <td>
+    <div class="btn-group-actions">
+      <button class="btn btn-info btn-sm btn-ver" data-id="${registro.id}"><i class="fas fa-eye"></i></button>
+      <button class="btn btn-warning btn-sm btn-editar" data-id="${registro.id}"><i class="fas fa-edit"></i></button>
+      <button class="btn btn-danger btn-sm btn-eliminar" data-id="${registro.id}"><i class="fas fa-trash"></i></button>
+    </div>
+  </td>
+  <td>
+    <button class="btn btn-secondary btn-sm btn-adjuntar" data-id="${registro.id}"><i class="fas fa-paperclip"></i></button>
+  </td>
+</tr>`;
+          tbody.innerHTML += fila;
+        });
+        renderizarPaginacion(total);
+      })
+      .catch(err => {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger">Error al cargar los datos</td></tr>';
+      });
+  };
+
+  // --- EVENTOS ---
+  selectAllCheckbox.addEventListener('click', (e) => {
+    const isChecked = e.target.checked;
+    document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = isChecked);
+    toggleDeleteButton();
+  });
+
+  tbody.addEventListener('change', (e) => {
+    if (e.target.classList.contains('row-checkbox')) toggleDeleteButton();
+  });
+
+  deleteSelectedButton.addEventListener('click', () => {
+    const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => parseInt(cb.value));
+    if (selectedIds.length === 0) return alert('No hay registros seleccionados.');
+    if (confirm(`¿Eliminar ${selectedIds.length} registros seleccionados?`)) {
+      fetch('http://localhost:3000/correspondencia/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      }).then(res => {
+        if (!res.ok) throw new Error('Falló el borrado masivo.');
+        selectAllCheckbox.checked = false;
+        toggleDeleteButton();
+        cargarCorrespondencia(currentPage);
+      }).catch(err => {
+        console.error(err);
+        alert('No se pudieron eliminar los registros.');
+      });
+    }
+  });
+
+  paginationControls.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (e.target.tagName === 'A' && !e.target.parentElement.classList.contains('disabled')) {
+      cargarCorrespondencia(parseInt(e.target.dataset.page));
+    }
+  });
+
   searchInput.addEventListener('input', () => cargarCorrespondencia(1));
   statusFilter.addEventListener('change', () => cargarCorrespondencia(1));
 
-  paginationControls.addEventListener('click', (event) => {
-    event.preventDefault();
-    if (event.target.tagName === 'A' && !event.target.parentElement.classList.contains('disabled')) {
-      const page = parseInt(event.target.dataset.page);
-      cargarCorrespondencia(page);
-    }
-  });
-
-  document.querySelector('table thead').addEventListener('click', (event) => {
-    if (event.target.tagName === 'TH' && event.target.dataset.sort) {
-      const clickedSort = event.target.dataset.sort;
-      if (sortBy === clickedSort) {
-        sortOrder = sortOrder === 'ASC' ? 'DESC' : 'ASC';
-      } else {
-        sortBy = clickedSort;
-        sortOrder = 'ASC';
-      }
+  document.querySelector('table thead').addEventListener('click', (e) => {
+    if (e.target.tagName === 'TH' && e.target.dataset.sort) {
+      const clickedSort = e.target.dataset.sort;
+      sortOrder = (sortBy === clickedSort) ? (sortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC';
+      sortBy = clickedSort;
       cargarCorrespondencia(1);
     }
   });
+
+tbody.addEventListener('click', (event) => {
+  const target = event.target;
+
+  if (target.classList.contains('ver-mas')) {
+    event.preventDefault();
+    const row = target.closest('tr');
+    const btn = row?.querySelector('.btn-ver');
+
+    if (btn) {
+      btn.click();
+    } else {
+      console.warn('No se encontró botón "ver" en la fila actual');
+    }
+  }
+});
 
   // --- EVENTOS DEL BODY ---
   tbody.addEventListener('click', async (event) => {
@@ -293,6 +321,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- SUBIR ARCHIVO ADJUNTO ---
   adjuntarForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    
+    const submitBtn = document.querySelector('button[form="adjuntarForm"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<div class="loading-spinner"></div> Subiendo...';
+    submitBtn.disabled = true;
+    
     const fileInput = document.getElementById('fileInput');
     const file = fileInput.files[0];
 
@@ -316,12 +350,22 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.error(err);
       alert('No se pudo subir el archivo.');
+    } finally {
+      submitBtn.innerHTML = originalText;
+      submitBtn.disabled = false;
     }
   });
 
   // --- GUARDAR REGISTRO ---
   registroForm.addEventListener('submit', (event) => {
     event.preventDefault();
+    
+    // Mostrar indicador de carga en el botón
+    const submitBtn = document.querySelector('button[form="registroForm"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<div class="loading-spinner"></div> Guardando...';
+    submitBtn.disabled = true;
+    
     const datos = {
       radicado: document.getElementById('radicado').value,
       fechaRecibido: document.getElementById('fechaRecibido').value,
@@ -355,7 +399,14 @@ document.addEventListener('DOMContentLoaded', () => {
         registroModal.hide();
         cargarCorrespondencia();
       })
-      .catch(err => console.error(err));
+      .catch(err => {
+        console.error(err);
+        alert('Error al guardar el registro');
+      })
+      .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+      });
   });
 
   registroModalElement.addEventListener('hidden.bs.modal', () => {

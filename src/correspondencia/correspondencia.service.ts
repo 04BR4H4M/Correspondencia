@@ -84,38 +84,47 @@ export class CorrespondenciaService {
     }
     return registro;
   }
-
-  async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Promise<Correspondencia> {
-    if (updateCorrespondenciaDto.radicado) {
-      const registroExistente = await this.correspondenciaRepository.findOne({
-        where: {
-          radicado: updateCorrespondenciaDto.radicado,
-          id: Not(id),
-        },
-      });
-
-      if (registroExistente) {
-        throw new ConflictException(`El número de radicado '${updateCorrespondenciaDto.radicado}' ya está en uso por otro registro.`);
-      }
+async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Promise<Correspondencia> {
+  // Validación de radicado duplicado (sin cambios)
+  if (updateCorrespondenciaDto.radicado) {
+    const registroExistente = await this.correspondenciaRepository.findOne({
+      where: { radicado: updateCorrespondenciaDto.radicado, id: Not(id) },
+    });
+    if (registroExistente) {
+      throw new ConflictException(`El número de radicado '${updateCorrespondenciaDto.radicado}' ya está en uso por otro registro.`);
     }
-    
-    const registro = await this.findOne(id);
-    const registroActualizado = this.correspondenciaRepository.merge(registro, updateCorrespondenciaDto);
-
-    // --- MEJORA 2: Recalcular fecha de vencimiento si es necesario ---
-    if (updateCorrespondenciaDto.tipoSolicitud || updateCorrespondenciaDto.fechaRecibido) {
-      registroActualizado.fechaVencimiento = this.calcularFechaVencimiento(
-        registroActualizado.fechaRecibido,
-        registroActualizado.tipoSolicitud,
-      );
-    }
-
-    if (registroActualizado.estado === EstadoSolicitud.RESPONDIDO && !registro.fechaContestacion) {
-      registroActualizado.fechaContestacion = new Date();
-    }
-
-    return this.correspondenciaRepository.save(registroActualizado);
   }
+
+  const registro = await this.findOne(id);
+
+  // --- AJUSTE DE ZONA HORARIA PARA FECHA MANUAL ---
+  if (updateCorrespondenciaDto.fechaContestacion) {
+    // Convertimos el string 'YYYY-MM-DD' a un objeto Date en la zona horaria local
+    const dateStr = updateCorrespondenciaDto.fechaContestacion.toString().split('T')[0];
+    updateCorrespondenciaDto.fechaContestacion = new Date(`${dateStr}T00:00:00`);
+  }
+
+  const registroActualizado = this.correspondenciaRepository.merge(registro, updateCorrespondenciaDto);
+
+  // Recalcular fecha de vencimiento si es necesario (sin cambios)
+  if (updateCorrespondenciaDto.tipoSolicitud || updateCorrespondenciaDto.fechaRecibido) {
+    registroActualizado.fechaVencimiento = this.calcularFechaVencimiento(
+      registroActualizado.fechaRecibido,
+      registroActualizado.tipoSolicitud,
+    );
+  }
+
+  // --- AJUSTE DE ZONA HORARIA PARA FECHA AUTOMÁTICA ---
+  if (registroActualizado.estado === EstadoSolicitud.RESPONDIDO && !registroActualizado.fechaContestacion) {
+    // Creamos la fecha de hoy, pero asegurándonos de que esté al inicio del día en la zona local
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0); // La establece a las 00:00 de la hora local
+    registroActualizado.fechaContestacion = hoy;
+  }
+
+  return this.correspondenciaRepository.save(registroActualizado);
+}
+
 
   async remove(id: number): Promise<void> {
     const result = await this.correspondenciaRepository.delete(id);
