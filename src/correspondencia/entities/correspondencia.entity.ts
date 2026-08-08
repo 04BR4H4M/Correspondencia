@@ -61,4 +61,7 @@ formaEnvio: string;
 @Column({ type: 'text', nullable: true }) // Nueva columna
 observaciones: string;
 
+@Column({ type: 'varchar', length: 255, nullable: true }) // Nueva columna
+correoRemitente: string;
+
 }

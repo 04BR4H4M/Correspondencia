@@ -256,6 +256,64 @@
   .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(0,0,0,.15); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ---- Notificaciones ---- */
+  .notif-wrap { position: relative; }
+  .notif-badge {
+    position: absolute; top: -3px; right: -3px; background: var(--danger); color: #fff;
+    font-size: .62rem; font-weight: 700; min-width: 16px; height: 16px; border-radius: 20px;
+    display: flex; align-items: center; justify-content: center; padding: 0 3px; border: 2px solid var(--bg);
+  }
+  .notif-badge.d-none { display: none; }
+  .notif-menu {
+    width: 320px; max-height: 380px; overflow-y: auto; padding: .4rem;
+    border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: var(--radius-sm);
+  }
+  .notif-menu .notif-header { font-size: .78rem; font-weight: 700; padding: .5rem .6rem .3rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+  .notif-item { display: flex; gap: .6rem; align-items: flex-start; padding: .55rem .6rem; border-radius: 8px; }
+  .notif-item:hover { background: #f8fafc; }
+  .notif-item .urgency-dot { margin-top: 5px; }
+  .notif-item .n-title { font-size: .82rem; font-weight: 600; }
+  .notif-item .n-sub { font-size: .74rem; color: var(--text-muted); }
+  .notif-empty { padding: 1.4rem .6rem; text-align: center; color: var(--text-muted); font-size: .82rem; }
+
+  /* ---- Toasts ---- */
+  #toastStack { position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 1080; display: flex; flex-direction: column; gap: .6rem; }
+  .app-toast {
+    background: var(--ink-900); color: #fff; padding: .75rem 1rem; border-radius: 10px;
+    box-shadow: 0 12px 28px -8px rgba(15,23,42,.4); font-size: .84rem; font-weight: 500;
+    display: flex; align-items: center; gap: .6rem; min-width: 260px; max-width: 360px;
+    opacity: 0; transform: translateY(8px); transition: opacity .2s ease, transform .2s ease;
+  }
+  .app-toast.show { opacity: 1; transform: none; }
+  .app-toast i { font-size: .95rem; }
+  .app-toast.toast-success i { color: #4ade80; }
+  .app-toast.toast-error i { color: #f87171; }
+  .app-toast.toast-info i { color: #60a5fa; }
+
+  /* ---- Filas de seguimiento alternadas ---- */
+  .table tbody tr:nth-child(even) td { background: #f8fafc; }
+  .table tbody tr { box-shadow: 0 1px 0 rgba(15,23,42,.03); }
+  .table tbody tr:hover td { background: #eef2ff; }
+
+  /* ---- Leyendas de ayuda en formulario ---- */
+  .field-hint { font-size: .74rem; color: var(--text-muted); margin-top: .3rem; }
+
+  /* ---- Banner de borrador guardado ---- */
+  .draft-banner {
+    display: none; align-items: center; gap: .6rem; background: var(--warning-soft); color: #92400e;
+    padding: .6rem .9rem; border-radius: var(--radius-sm); font-size: .82rem; font-weight: 600; margin-bottom: 1.1rem;
+  }
+  .draft-banner.show { display: flex; }
+  .draft-banner button { margin-left: auto; background: none; border: none; color: #92400e; font-size: .78rem; font-weight: 700; cursor: pointer; }
+
+  /* ---- Tutorial ---- */
+  .tutorial-dots { display: flex; gap: .4rem; justify-content: center; margin: 1rem 0 .2rem; }
+  .tutorial-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+  .tutorial-dots span.active { background: var(--primary); width: 18px; border-radius: 5px; }
+  .tutorial-icon { width: 52px; height: 52px; border-radius: 14px; background: var(--primary-soft); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin: 0 auto 1rem; }
+  .help-link { color: var(--text-muted); font-size: .74rem; cursor: pointer; }
+  .help-link:hover { color: #fff; }
+
   /* ---- Responsive ---- */
   @media (max-width: 1100px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -291,7 +349,10 @@
         <button class="nav-item" data-section="seguimiento"><i class="fas fa-list-check"></i>Seguimiento<span class="badge-count" id="navSeguimientoCount">–</span></button>
         <button class="nav-item" data-section="documentos"><i class="fas fa-paperclip"></i>Documentos</button>
       </nav>
-      <div class="sidebar-footer">Sistema de Gestión de Correspondencia</div>
+      <div class="sidebar-footer">
+        Sistema de Gestión de Correspondencia<br>
+        <span class="help-link" id="openTutorialBtn"><i class="fas fa-circle-question me-1"></i>Ver tutorial de uso</span>
+      </div>
     </aside>
 
     <!-- Main -->
@@ -309,6 +370,16 @@
             <option value="En Proceso">⚙️ En Proceso</option>
             <option value="Respondido">✅ Respondido</option>
           </select>
+          <div class="notif-wrap dropdown">
+            <button class="icon-btn" type="button" id="notifBell" data-bs-toggle="dropdown" aria-expanded="false" title="Notificaciones">
+              <i class="fas fa-bell"></i>
+              <span class="notif-badge d-none" id="notifBadge">0</span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end notif-menu" id="notifMenu">
+              <div class="notif-header">Notificaciones</div>
+              <div id="notifList"><div class="notif-empty">Cargando...</div></div>
+            </div>
+          </div>
           <div class="topbar-user">CN</div>
         </div>
       </header>
@@ -379,11 +450,18 @@
               <button type="button" id="cancelEditBtn">Cancelar y radicar nuevo</button>
             </div>
 
+            <div class="draft-banner" id="draftBanner">
+              <i class="fas fa-clock-rotate-left"></i>
+              <span>Recuperamos un borrador que no habías guardado.</span>
+              <button type="button" id="discardDraftBtn">Descartar borrador</button>
+            </div>
+
             <form id="registroForm">
               <div class="form-grid">
                 <div>
                   <label for="radicado"><i class="fas fa-file-alt"></i>Número de Radicado</label>
                   <input type="text" class="form-control" id="radicado" required />
+                  <div class="field-hint">Consecutivo interno de la entidad, ej: RAD-2026-0142</div>
                 </div>
                 <div>
                   <label for="tipoSolicitud"><i class="fas fa-list"></i>Tipo de Solicitud</label>
@@ -395,27 +473,37 @@
                     <option value="Sugerencia">💡 Sugerencia</option>
                     <option value="Invitación">🎉 Invitación</option>
                   </select>
+                  <div class="field-hint">Derecho de petición, queja y reclamo calculan automáticamente la fecha de vencimiento (15 días hábiles).</div>
                 </div>
 
                 <div>
                   <label for="fechaRecibido"><i class="fas fa-calendar-plus"></i>Fecha de Recibido</label>
                   <input type="date" class="form-control" id="fechaRecibido" required />
+                  <div class="field-hint">Fecha en que el documento ingresó a la entidad, no la fecha de radicación en el sistema.</div>
                 </div>
                 <div>
                   <label for="fechaContestacion"><i class="fas fa-calendar-check"></i>Fecha de Contestación</label>
                   <input type="date" class="form-control" id="fechaContestacion" />
+                  <div class="field-hint">Déjalo vacío si aún no se ha respondido.</div>
                 </div>
 
                 <div>
                   <label for="remitente"><i class="fas fa-user"></i>Remitente</label>
                   <input type="text" class="form-control" id="remitente" required />
+                  <div class="field-hint">Nombre completo de la persona o entidad que envía la solicitud.</div>
                 </div>
+                <div>
+                  <label for="correoRemitente"><i class="fas fa-envelope"></i>Correo del Remitente</label>
+                  <input type="email" class="form-control" id="correoRemitente" placeholder="correo@ejemplo.com" />
+                  <div class="field-hint">Opcional por ahora — se usará para enviar la respuesta desde el aplicativo.</div>
+                </div>
+
                 <div>
                   <label for="cargoEntidad"><i class="fas fa-briefcase"></i>Cargo - Entidad</label>
                   <input type="text" class="form-control" id="cargoEntidad" />
+                  <div class="field-hint">Ej: Secretaría de Planeación, Personero Municipal, ciudadano particular.</div>
                 </div>
-
-                <div class="full">
+                <div>
                   <label for="formaEnvio"><i class="fas fa-paper-plane"></i>Forma de Envío</label>
                   <select class="form-select" id="formaEnvio" required>
                     <option value="" disabled selected>Seleccione una forma de envío...</option>
@@ -423,16 +511,19 @@
                     <option value="correo">📧 Correo</option>
                     <option value="pagina">🌐 Página</option>
                   </select>
+                  <div class="field-hint">Cómo llegó el documento a la entidad.</div>
                 </div>
 
                 <div class="full">
                   <label for="asunto"><i class="fas fa-subject"></i>Asunto</label>
                   <textarea class="form-control" id="asunto" rows="3" required></textarea>
+                  <div class="field-hint">Resumen breve y claro del contenido — es lo que se muestra en el listado de Seguimiento.</div>
                 </div>
 
                 <div class="full">
                   <label for="observaciones"><i class="fas fa-sticky-note"></i>Observaciones</label>
                   <textarea class="form-control" id="observaciones" rows="3"></textarea>
+                  <div class="field-hint">Notas internas — no se envían al remitente.</div>
                 </div>
               </div>
 
@@ -564,6 +655,28 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal Tutorial -->
+  <div class="modal fade" id="tutorialModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-body text-center py-4 px-4" id="tutorialBody">
+          <!-- contenido inyectado por JS -->
+        </div>
+        <div class="tutorial-dots" id="tutorialDots"></div>
+        <div class="modal-footer border-0 justify-content-between px-4 pb-4">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="tutorialSkipBtn">Omitir</button>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="tutorialPrevBtn">Anterior</button>
+            <button type="button" class="btn btn-primary btn-sm" id="tutorialNextBtn">Siguiente</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toastStack"></div>
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

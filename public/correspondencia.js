@@ -36,6 +36,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const docGrid = document.getElementById('docGrid');
   const docTabs = document.querySelectorAll('.doc-tab');
 
+  // --- ELEMENTOS: NOTIFICACIONES / TOASTS / TUTORIAL ---
+  const notifBadge = document.getElementById('notifBadge');
+  const notifList = document.getElementById('notifList');
+  const toastStack = document.getElementById('toastStack');
+  const draftBanner = document.getElementById('draftBanner');
+  const discardDraftBtn = document.getElementById('discardDraftBtn');
+  const openTutorialBtn = document.getElementById('openTutorialBtn');
+
   // --- ESTADO ---
   let idParaAdjuntar = null;
   let idParaActualizar = null;
@@ -44,6 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let sortBy = 'id';
   let sortOrder = 'ASC';
   let docFilter = 'todos';
+
+  const DRAFT_KEY = 'correspondencia_draft_v1';
+  const TUTORIAL_KEY = 'correspondencia_tutorial_visto';
 
   // ==========================================================
   // NAVEGACIÓN ENTRE SECCIONES
@@ -54,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sidebar.classList.remove('open');
 
     if (section === 'dashboard') cargarDashboard();
+    cargarNotificaciones();
     if (section === 'seguimiento') cargarCorrespondencia(1);
     if (section === 'documentos') cargarDocumentos();
   }
@@ -314,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   deleteSelectedButton.addEventListener('click', () => {
     const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => parseInt(cb.value));
-    if (selectedIds.length === 0) return alert('No hay registros seleccionados.');
+    if (selectedIds.length === 0) return showToast('No hay registros seleccionados.', 'info');
     if (confirm(`¿Eliminar ${selectedIds.length} registros seleccionados?`)) {
       fetch(`${API_BASE}/bulk-delete`, {
         method: 'POST',
@@ -325,9 +337,10 @@ document.addEventListener('DOMContentLoaded', () => {
         selectAllCheckbox.checked = false;
         toggleDeleteButton();
         cargarCorrespondencia(currentPage);
+        showToast('Registros eliminados con éxito', 'success');
       }).catch(err => {
         console.error(err);
-        alert('No se pudieron eliminar los registros.');
+        showToast('No se pudieron eliminar los registros.', 'error');
       });
     }
   });
@@ -401,10 +414,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error('Error al eliminar el registro.');
             if (tbody.rows.length === 1 && currentPage > 1) currentPage--;
             cargarCorrespondencia(currentPage);
+            cargarNotificaciones();
+            showToast('Registro eliminado', 'success');
           })
           .catch(err => {
             console.error(err);
-            alert('Error al eliminar el registro.');
+            showToast('Error al eliminar el registro.', 'error');
           });
       }
       return;
@@ -431,10 +446,11 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!res.ok) throw new Error('Error al actualizar estado.');
           selectElement.className = `form-select form-select-sm status-select ${getStatusBadgeClass(nuevoEstado).join(' ')}`;
           cargarCorrespondencia(currentPage);
+          cargarNotificaciones();
         })
         .catch(err => {
           console.error(err);
-          alert('No se pudo actualizar el estado.');
+          showToast('No se pudo actualizar el estado.', 'error');
         });
     }
   });
@@ -448,11 +464,13 @@ document.addEventListener('DOMContentLoaded', () => {
     radicacionTitle.textContent = 'Radicar nueva correspondencia';
     submitRegistroBtn.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Registro';
     editingBanner.classList.remove('show');
+    borrarDraft();
   }
 
   function cargarRegistroEnFormulario(registro) {
     document.getElementById('radicado').value = registro.radicado;
     document.getElementById('remitente').value = registro.remitente;
+    document.getElementById('correoRemitente').value = registro.correoRemitente || '';
     document.getElementById('asunto').value = registro.asunto;
     document.getElementById('tipoSolicitud').value = registro.tipoSolicitud;
     document.getElementById('cargoEntidad').value = registro.cargoEntidad || '';
@@ -483,6 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
       radicado: document.getElementById('radicado').value,
       fechaRecibido: document.getElementById('fechaRecibido').value,
       remitente: document.getElementById('remitente').value,
+      correoRemitente: document.getElementById('correoRemitente').value,
       asunto: document.getElementById('asunto').value,
       tipoSolicitud: document.getElementById('tipoSolicitud').value,
       cargoEntidad: document.getElementById('cargoEntidad').value,
@@ -506,6 +525,8 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(() => {
         const eraActualizacion = esActualizacion;
         resetRegistroForm();
+        showToast(eraActualizacion ? 'Registro actualizado con éxito' : 'Registro radicado con éxito', 'success');
+        cargarNotificaciones();
         goToSection('seguimiento');
         if (!eraActualizacion) {
           // Deja ver el nuevo registro primero en la lista
@@ -516,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(err => {
         console.error(err);
         const msg = err && err.message ? err.message : 'Error al guardar el registro';
-        alert(msg);
+        showToast(msg, 'error');
       })
       .finally(() => {
         submitRegistroBtn.innerHTML = originalText;
@@ -554,13 +575,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       adjuntarModal.hide();
       adjuntarForm.reset();
-      alert('Archivo subido con éxito');
+      showToast('Archivo subido con éxito', 'success');
 
       if (document.getElementById('section-seguimiento').classList.contains('active')) cargarCorrespondencia(currentPage);
       if (document.getElementById('section-documentos').classList.contains('active')) cargarDocumentos();
     } catch (err) {
       console.error(err);
-      alert('No se pudo subir el archivo.');
+      showToast('No se pudo subir el archivo.', 'error');
     } finally {
       submitBtn.innerHTML = originalText;
       submitBtn.disabled = false;
@@ -618,6 +639,175 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn) abrirModalAdjuntar(btn.dataset.id);
   });
 
+  // ==========================================================
+  // TOASTS
+  // ==========================================================
+  function showToast(message, type = 'info') {
+    const icons = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
+    const toast = document.createElement('div');
+    toast.className = `app-toast toast-${type}`;
+    toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${message}</span>`;
+    toastStack.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 250);
+    }, 3800);
+  }
+
+  // ==========================================================
+  // NOTIFICACIONES (campana en la barra superior)
+  // ==========================================================
+  async function cargarNotificaciones() {
+    try {
+      const { data } = await fetchTodos();
+      const alertas = data
+        .filter(r => r.estado !== 'Respondido')
+        .map(r => ({ ...r, urgencia: getUrgency(r.estado, r.fechaVencimiento) }))
+        .filter(r => r.urgencia === 'overdue' || r.urgencia === 'soon')
+        .sort((a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
+
+      if (alertas.length === 0) {
+        notifBadge.classList.add('d-none');
+        notifList.innerHTML = `<div class="notif-empty"><i class="fas fa-circle-check mb-1 d-block"></i>Sin pendientes urgentes.</div>`;
+        return;
+      }
+
+      notifBadge.textContent = alertas.length > 9 ? '9+' : alertas.length;
+      notifBadge.classList.remove('d-none');
+
+      notifList.innerHTML = alertas.slice(0, 8).map(r => `
+        <div class="notif-item" data-id="${r.id}" role="button">
+          <span class="urgency-dot bg-urgency-${r.urgencia}"></span>
+          <div>
+            <div class="n-title">${r.radicado} · ${r.remitente}</div>
+            <div class="n-sub urgency-${r.urgencia}">${r.urgencia === 'overdue' ? 'Vencido' : 'Vence pronto'} — ${r.asunto.substring(0, 46)}${r.asunto.length > 46 ? '…' : ''}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      console.error(err);
+      notifList.innerHTML = `<div class="notif-empty">No se pudieron cargar las notificaciones.</div>`;
+    }
+  }
+
+  notifList.addEventListener('click', (e) => {
+    const item = e.target.closest('.notif-item');
+    if (!item) return;
+    searchInput.value = '';
+    statusFilter.value = '';
+    goToSection('seguimiento');
+  });
+
+  // ==========================================================
+  // GUARDADO EN CACHÉ DEL FORMULARIO DE RADICACIÓN (borrador)
+  // ==========================================================
+  const draftFieldIds = ['radicado', 'tipoSolicitud', 'fechaRecibido', 'fechaContestacion', 'remitente', 'correoRemitente', 'cargoEntidad', 'formaEnvio', 'asunto', 'observaciones'];
+
+  function guardarDraft() {
+    if (idParaActualizar !== null) return; // no cachear mientras se edita un registro existente
+    const draft = {};
+    draftFieldIds.forEach(id => { draft[id] = document.getElementById(id).value; });
+    const tieneContenido = Object.values(draft).some(v => v && v.trim() !== '');
+    if (tieneContenido) {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } else {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+  }
+
+  function borrarDraft() {
+    localStorage.removeItem(DRAFT_KEY);
+    draftBanner.classList.remove('show');
+  }
+
+  function restaurarDraftSiExiste() {
+    if (idParaActualizar !== null) return;
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw);
+      draftFieldIds.forEach(id => {
+        if (draft[id]) document.getElementById(id).value = draft[id];
+      });
+      draftBanner.classList.add('show');
+    } catch {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+  }
+
+  let draftDebounce;
+  registroForm.addEventListener('input', () => {
+    clearTimeout(draftDebounce);
+    draftDebounce = setTimeout(guardarDraft, 400);
+  });
+
+  discardDraftBtn.addEventListener('click', () => {
+    registroForm.reset();
+    borrarDraft();
+  });
+
+  // ==========================================================
+  // TUTORIAL DE PRIMER USO
+  // ==========================================================
+  const tutorialModalElement = document.getElementById('tutorialModal');
+  const tutorialModal = new bootstrap.Modal(tutorialModalElement);
+  const tutorialBody = document.getElementById('tutorialBody');
+  const tutorialDots = document.getElementById('tutorialDots');
+  const tutorialPrevBtn = document.getElementById('tutorialPrevBtn');
+  const tutorialNextBtn = document.getElementById('tutorialNextBtn');
+  const tutorialSkipBtn = document.getElementById('tutorialSkipBtn');
+
+  const tutorialSlides = [
+    { icon: 'fa-chart-pie', title: 'Dashboard', text: 'Aquí ves el resumen general: cuántos radicados hay, cuántos están vencidos y los que están por vencer, ordenados por urgencia.' },
+    { icon: 'fa-file-circle-plus', title: 'Radicación', text: 'Registra cada documento que llega a la entidad. El sistema calcula solo la fecha de vencimiento según el tipo de solicitud.' },
+    { icon: 'fa-list-check', title: 'Seguimiento', text: 'La lista completa de radicados. Cambia el estado, edítalos o elimínalos. El color a la izquierda de cada fila indica su urgencia: verde a tiempo, ámbar por vencer, rojo vencido.' },
+    { icon: 'fa-paperclip', title: 'Documentos', text: 'Revisa qué radicados tienen archivo adjunto y cuáles no, para no dejar ninguno sin soporte.' },
+    { icon: 'fa-bell', title: 'Notificaciones', text: 'La campana en la parte superior te avisa de los radicados vencidos o próximos a vencer, sin tener que entrar al Dashboard.' },
+  ];
+  let tutorialStep = 0;
+
+  function renderTutorialStep() {
+    const s = tutorialSlides[tutorialStep];
+    tutorialBody.innerHTML = `
+      <div class="tutorial-icon"><i class="fas ${s.icon}"></i></div>
+      <h5 class="fw-bold mb-2">${s.title}</h5>
+      <p class="text-muted mb-0" style="font-size:.88rem;">${s.text}</p>
+    `;
+    tutorialDots.innerHTML = tutorialSlides.map((_, i) => `<span class="${i === tutorialStep ? 'active' : ''}"></span>`).join('');
+    tutorialPrevBtn.classList.toggle('d-none', tutorialStep === 0);
+    tutorialNextBtn.textContent = tutorialStep === tutorialSlides.length - 1 ? 'Entendido, empezar' : 'Siguiente';
+  }
+
+  function abrirTutorial() {
+    tutorialStep = 0;
+    renderTutorialStep();
+    tutorialModal.show();
+  }
+
+  tutorialNextBtn.addEventListener('click', () => {
+    if (tutorialStep < tutorialSlides.length - 1) {
+      tutorialStep++;
+      renderTutorialStep();
+    } else {
+      localStorage.setItem(TUTORIAL_KEY, '1');
+      tutorialModal.hide();
+    }
+  });
+  tutorialPrevBtn.addEventListener('click', () => {
+    if (tutorialStep > 0) { tutorialStep--; renderTutorialStep(); }
+  });
+  tutorialSkipBtn.addEventListener('click', () => {
+    localStorage.setItem(TUTORIAL_KEY, '1');
+    tutorialModal.hide();
+  });
+  openTutorialBtn.addEventListener('click', abrirTutorial);
+
   // --- INICIO ---
   cargarDashboard();
+  cargarNotificaciones();
+  restaurarDraftSiExiste();
+  if (!localStorage.getItem(TUTORIAL_KEY)) {
+    setTimeout(abrirTutorial, 500);
+  }
 });

@@ -33,4 +33,8 @@ observaciones?: string;
  @IsDateString() // Valida que sea una fecha
   @IsOptional()   // La hace opcional
   fechaRecibido?: string;
+
+@IsString()
+@IsOptional()
+correoRemitente?: string;
 }

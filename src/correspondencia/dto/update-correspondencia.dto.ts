@@ -43,4 +43,8 @@ observaciones?: string;
 @IsOptional()
 fechaRecibido?: Date;
 
+@IsString()
+@IsOptional()
+correoRemitente?: string;
+
 }
