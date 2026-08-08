@@ -3,394 +3,510 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gestión de Correspondencia</title>
+  <title>Correspondencia · Concejo Municipal de Nilo</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    
+
+  /* ============ TOKENS ============ */
   :root {
-    --primary-color: #2563eb;
-    --primary-hover: #1d4ed8;
-    --secondary-color: #64748b;
-    --success-color: #059669;
-    --warning-color: #d97706;
-    --danger-color: #dc2626;
-    --light-bg: #f8fafc;
-    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --border-radius: 12px;
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --ink-900: #0f172a;
+    --ink-800: #17223b;
+    --ink-700: #26314d;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-soft: #e8f0fe;
+    --bg: #eef1f6;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --success: #059669;
+    --success-soft: #e1f5ee;
+    --warning: #d97706;
+    --warning-soft: #fdf1e0;
+    --danger: #dc2626;
+    --danger-soft: #fce8e8;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px -12px rgba(15, 23, 42, .12);
+    --sidebar-w: 248px;
   }
 
-  * {
-    transition: var(--transition);
-  }
+  * { box-sizing: border-box; }
 
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    font-weight: 400;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
   }
 
-  .navbar {
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: var(--card-shadow);
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  a { text-decoration: none; }
+
+  /* ============ SHELL ============ */
+  .app-shell { display: flex; min-height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: linear-gradient(180deg, var(--ink-900), var(--ink-800));
+    color: #cbd5e1;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 40;
+    transition: transform .25s ease;
   }
 
-  .navbar-brand {
-    color: var(--primary-color) !important;
-    font-weight: 600;
-    font-size: 1.25rem;
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: 1.4rem 1.25rem 1.2rem;
+    border-bottom: 1px solid rgba(255,255,255,.08);
   }
-
-  .container {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    border-radius: var(--border-radius);
-    box-shadow: var(--card-shadow);
-    padding: 2rem;
-    margin-top: 2rem;
-    margin-bottom: 2rem;
-    max-width: 99%;
-    width: 100%;
+  .sidebar-brand .mark {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--primary), #60a5fa);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 1.05rem; flex-shrink: 0;
+    box-shadow: 0 4px 10px -2px rgba(37,99,235,.6);
   }
+  .sidebar-brand .name { color: #fff; font-weight: 700; font-size: .92rem; line-height: 1.25; }
+  .sidebar-brand .place { color: #94a3b8; font-size: .74rem; }
 
-  .main-container {
-    max-width: 2100px;
-    margin: 0 auto;
-    padding: 0 1rem;
-  }
+  .sidebar-nav { padding: 1.1rem .75rem; display: flex; flex-direction: column; gap: .2rem; flex: 1; }
+  .nav-section-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: #64748b; padding: .5rem .6rem .35rem; font-weight: 600; }
 
-  .table-container {
-    background: white;
-    border-radius: var(--border-radius);
-    box-shadow: var(--card-shadow);
-    overflow: hidden;
-    margin: 1.5rem 0;
-  }
-
-  th, td {
-  white-space: nowrap; /* Evita saltos de línea */
-  vertical-align: middle;
-}
-
-  .table-responsive {
-    border-radius: var(--border-radius);
-    overflow-x: auto;
-    min-width: 1500px;
-    width: 100%;
-  }
-
-  /* Asegura que la tabla no se monte con los íconos */
-.btn-group-actions {
-  display: flex;
-  gap: 4px;
-  flex-wrap: nowrap;
-}
-
-/* Opcional: Ajusta tamaño de íconos */
-.btn-group-actions .btn i {
-  font-size: 14px;
-}
-
-/* Aumenta separación entre columnas si es necesario */
-th {
-  padding: 0.75rem 1rem;
-}
-
-/* Corrige alineación de select en estado */
-.status-select {
-  min-width: 110px;
-}
-
-  .table {
-    border-collapse: collapse;
-    table-layout: fixed;
-    width: 100%;
-    word-wrap: break-word;
-  }
-
-  .table thead th {
-    background: linear-gradient(135deg, #1e293b, #334155);
-    color: white;
-    font-weight: 300;
+  .nav-item {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .62rem .75rem;
+    border-radius: var(--radius-sm);
+    color: #b6c2d6;
+    background: transparent;
     border: none;
-    padding: 1rem;
-    white-space: normal; /* Permite saltos de línea en encabezados */
-    text-align: center;
-  }
-
-    /* Optimización de anchos de columnas */
-.table th:nth-child(1), .table td:nth-child(1) { width: 40px; min-width: 40px; } /* Checkbox */
-.table th:nth-child(2), .table td:nth-child(2) { width: 80px; min-width: 80px; } /* ID */
-.table th:nth-child(3), .table td:nth-child(3) { width: 120px; min-width: 120px; } /* Radicado */
-.table th:nth-child(4), .table td:nth-child(4) { width: 400px; min-width: 400px; } /* Remitente */
-.table th:nth-child(5), .table td:nth-child(5) { width: 400px; min-width: 400px; } /* Asunto */
-/* --- ANCHOS CORREGIDOS --- */
-.table th:nth-child(6), .table td:nth-child(6) { width: 130px; min-width: 130px; } /* Fecha Recibido */
-.table th:nth-child(7), .table td:nth-child(7) { width: 130px; min-width: 130px; } /* Fecha Vencimiento */
-.table th:nth-child(8), .table td:nth-child(8) { width: 130px; min-width: 130px; } /* Fecha Contestación */
-/* ------------------------- */
-.table th:nth-child(9), .table td:nth-child(9) { width: 400px; min-width: 400px; } /* Observaciones */
-.table th:nth-child(10), .table td:nth-child(10) { width: 140px; min-width: 140px; } /* Estado */
-/* --- ANCHO CORREGIDO --- */
-.table th:nth-child(11), .table td:nth-child(11) { width: 180px; min-width: 180px; } /* Acciones */
-/* ------------------------- */
-.table th:nth-child(12), .table td:nth-child(12) { width: 120px; min-width: 120px; } /* Adjuntos */
-
-  .table td {
-    padding: 1.2rem 1rem;
-    vertical-align: top;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    position: relative;
-  }
-
-  .table tbody tr:hover {
-    background-color: #f1f5f9;
-    transform: translateY(-2px);
-    box-shadow: var(--card-shadow-hover);
-  }
-
-  .text-truncate-custom {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .ver-mas {
-    display: inline-block;
-    color: var(--primary-color);
+    width: 100%;
+    text-align: left;
+    font-size: .875rem;
+    font-weight: 500;
     cursor: pointer;
-    font-size: 0.85rem;
-    margin-top: 4px;
+    transition: background .15s ease, color .15s ease;
+  }
+  .nav-item i { width: 18px; text-align: center; font-size: .9rem; color: #7d8bab; transition: color .15s ease; }
+  .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+  .nav-item:hover i { color: #cbd5e1; }
+  .nav-item.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px -2px rgba(37,99,235,.5); }
+  .nav-item.active i { color: #fff; }
+  .nav-item .badge-count {
+    margin-left: auto; background: rgba(255,255,255,.15); color: #fff;
+    font-size: .68rem; padding: .1rem .42rem; border-radius: 20px; font-weight: 600;
+  }
+  .nav-item.active .badge-count { background: rgba(255,255,255,.28); }
+
+  .sidebar-footer { padding: 1rem 1.25rem 1.3rem; border-top: 1px solid rgba(255,255,255,.08); font-size: .72rem; color: #64748b; }
+
+  /* ---- Main ---- */
+  .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    background: rgba(238,241,246,.85);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .85rem 1.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-search { flex: 1; max-width: 420px; position: relative; }
+  .topbar-search i { position: absolute; left: .9rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .82rem; }
+  .topbar-search input {
+    width: 100%; border: 1px solid var(--border); background: var(--surface);
+    border-radius: 10px; padding: .55rem .8rem .55rem 2.15rem; font-size: .86rem; outline: none;
+  }
+  .topbar-search input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+
+  .topbar-actions { display: flex; align-items: center; gap: .6rem; margin-left: auto; }
+  .topbar select.form-select { width: auto; font-size: .82rem; border-radius: 10px; border-color: var(--border); }
+
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .mobile-only { display: none; }
+
+  .topbar-user {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), #60a5fa);
+    color: #fff; display: flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 700;
   }
 
-  /* Botones y formularios sin cambios */
-  .btn { border-radius: 8px; font-weight: 500; padding: 0.5rem 1rem; border: none; position: relative; overflow: hidden; transform: translateY(0); }
-  .btn::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent); transition: left 0.5s; }
-  .btn:hover::before { left: 100%; }
-  .btn:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
+  .content { padding: 1.75rem; max-width: 1500px; width: 100%; margin: 0 auto; }
 
-  .btn-primary { background: linear-gradient(135deg, var(--primary-color), var(--primary-hover)); }
-  .btn-success { background: linear-gradient(135deg, var(--success-color), #047857); }
-  .btn-warning { background: linear-gradient(135deg, var(--warning-color), #b45309); }
-  .btn-danger { background: linear-gradient(135deg, var(--danger-color), #b91c1c); }
-  .btn-info { background: linear-gradient(135deg, #0891b2, #0e7490); }
-  .btn-secondary { background: linear-gradient(135deg, var(--secondary-color), #475569); }
+  .view { display: none; animation: fadeIn .25s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-  /* Responsive */
-  @media (max-width: 1700px) {
-    .table-responsive { overflow-x: auto; }
+  .view-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1.4rem; flex-wrap: wrap; }
+  .view-header h1 { font-size: 1.4rem; font-weight: 800; margin: 0 0 .2rem; letter-spacing: -.01em; }
+  .view-header p { color: var(--text-muted); font-size: .85rem; margin: 0; }
+  .eyebrow { font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; color: var(--primary); font-weight: 700; margin-bottom: .3rem; }
+
+  .btn { border-radius: 9px; font-weight: 600; padding: .55rem 1rem; border: none; font-size: .85rem; }
+  .btn-primary { background: var(--primary); }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-success { background: var(--success); }
+  .btn-danger { background: var(--danger); }
+  .btn-outline-secondary { border: 1px solid var(--border); color: var(--text-muted); background: var(--surface); }
+
+  .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); }
+
+  /* ---- Dashboard ---- */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
+  .kpi-card { padding: 1.15rem 1.3rem; position: relative; overflow: hidden; }
+  .kpi-card .kpi-icon {
+    width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; margin-bottom: .7rem;
   }
-</style>
+  .kpi-card .kpi-value { font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; }
+  .kpi-card .kpi-label { font-size: .78rem; color: var(--text-muted); font-weight: 500; margin-top: .15rem; }
+
+  .dash-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 1rem; }
+  .chart-card, .list-card { padding: 1.3rem; }
+  .chart-card h3, .list-card h3 { font-size: .92rem; font-weight: 700; margin: 0 0 .2rem; }
+  .chart-card .sub, .list-card .sub { font-size: .78rem; color: var(--text-muted); margin-bottom: 1rem; }
+
+  .bar-row { display: flex; align-items: center; gap: .7rem; margin-bottom: .85rem; font-size: .8rem; }
+  .bar-row .label { width: 92px; flex-shrink: 0; color: var(--text-muted); }
+  .bar-row .track { flex: 1; height: 9px; background: #f1f5f9; border-radius: 6px; overflow: hidden; }
+  .bar-row .fill { height: 100%; border-radius: 6px; }
+  .bar-row .count { width: 28px; text-align: right; font-weight: 700; }
+
+  .upcoming-item { display: flex; align-items: center; gap: .7rem; padding: .6rem 0; border-bottom: 1px solid var(--border); }
+  .upcoming-item:last-child { border-bottom: none; }
+  .urgency-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .upcoming-item .radicado { font-size: .78rem; font-weight: 600; }
+  .upcoming-item .asunto { font-size: .76rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .upcoming-item .due { margin-left: auto; font-size: .72rem; font-weight: 700; flex-shrink: 0; }
+
+  .urgency-ok { color: var(--success); } .bg-urgency-ok { background: var(--success); }
+  .urgency-soon { color: var(--warning); } .bg-urgency-soon { background: var(--warning); }
+  .urgency-overdue { color: var(--danger); } .bg-urgency-overdue { background: var(--danger); }
+
+  /* ---- Seguimiento (tabla) ---- */
+  .table-container { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; }
+  .table-responsive { overflow-x: auto; }
+  .table { border-collapse: collapse; width: 100%; margin: 0; }
+  .table thead th {
+    background: #f8fafc; color: var(--text-muted); font-weight: 600; font-size: .72rem;
+    text-transform: uppercase; letter-spacing: .04em; border: none; border-bottom: 1px solid var(--border);
+    padding: .8rem .9rem; text-align: left; white-space: nowrap;
+  }
+  .table td { padding: .85rem .9rem; font-size: .84rem; vertical-align: middle; border-bottom: 1px solid var(--border); }
+  .table tbody tr:last-child td { border-bottom: none; }
+  .table tbody tr:hover { background: #f8fafc; }
+  .table td:first-child { box-shadow: inset 4px 0 0 0 var(--row-color, transparent); }
+  .table td.radicado-cell { font-family: 'JetBrains Mono', monospace; font-size: .78rem; font-weight: 600; }
+
+  .text-truncate-custom { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 260px; }
+  .ver-mas { display: inline-block; color: var(--primary); cursor: pointer; font-size: .78rem; }
+
+  .status-select { min-width: 130px; border-radius: 8px; font-size: .78rem; font-weight: 600; border: 1px solid var(--border); }
+  .btn-group-actions { display: flex; gap: 4px; }
+  .btn-group-actions .btn { padding: .35rem .55rem; }
+
+  /* ---- Radicación (form) ---- */
+  .form-card { padding: 1.75rem; max-width: 780px; }
+  .form-card .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.2rem; }
+  .form-card .full { grid-column: 1 / -1; }
+  .form-card label { font-size: .8rem; font-weight: 600; margin-bottom: .35rem; display: block; }
+  .form-card label i { color: var(--primary); margin-right: .4rem; width: 14px; text-align: center; }
+  .form-card .form-control, .form-card .form-select { border-radius: 9px; border-color: var(--border); font-size: .87rem; }
+  .form-card .form-control:focus, .form-card .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  .form-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid var(--border); }
+  .editing-banner {
+    display: none; align-items: center; gap: .6rem; background: var(--primary-soft); color: var(--primary-dark);
+    padding: .6rem .9rem; border-radius: var(--radius-sm); font-size: .82rem; font-weight: 600; margin-bottom: 1.1rem;
+  }
+  .editing-banner.show { display: flex; }
+  .editing-banner button { margin-left: auto; background: none; border: none; color: var(--primary-dark); font-size: .78rem; font-weight: 700; cursor: pointer; }
+
+  /* ---- Documentos ---- */
+  .doc-tabs { display: flex; gap: .4rem; margin-bottom: 1.1rem; }
+  .doc-tab {
+    border: 1px solid var(--border); background: var(--surface); border-radius: 9px; padding: .45rem .9rem;
+    font-size: .8rem; font-weight: 600; color: var(--text-muted); cursor: pointer;
+  }
+  .doc-tab.active { background: var(--ink-900); color: #fff; border-color: var(--ink-900); }
+  .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 1rem; }
+  .doc-card { padding: 1.1rem; display: flex; flex-direction: column; gap: .5rem; box-shadow: inset 4px 0 0 0 var(--row-color, var(--border)); }
+  .doc-card .doc-radicado { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--text-muted); }
+  .doc-card .doc-asunto { font-size: .86rem; font-weight: 600; line-height: 1.35; }
+  .doc-card .doc-meta { font-size: .74rem; color: var(--text-muted); }
+  .doc-card .doc-actions { margin-top: .4rem; display: flex; gap: .5rem; }
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); grid-column: 1 / -1; }
+  .empty-state i { font-size: 1.8rem; margin-bottom: .6rem; color: #cbd5e1; display: block; }
+
+  .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(0,0,0,.15); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 1100px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .dash-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 900px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; }
+    .mobile-only { display: flex; }
+    .form-card .form-grid { grid-template-columns: 1fr; }
+  }
+  </style>
 </head>
 
 <body>
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg fixed-top">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">
-        <i class="fas fa-building me-2"></i>
-        Concejo Municipal de Nilo - Cundinamarca
-      </a>
-    </div>
-  </nav>
+  <div class="app-shell">
 
-  <!-- Main content -->
-  <main class="main-container mt-5 pt-4 fade-in">
-    <div class="container">
-    <div class="header-actions justify-content-between align-items-center mb-4">
-      <div>
-        <h1 class="mb-2" style="color: var(--primary-color); font-weight: 700;">
-          <i class="fas fa-envelope-open-text me-3"></i>
-          Sistema de Gestión de Correspondencia
-        </h1>
-        <p class="text-muted mb-0">Administra y controla toda la correspondencia</p>
-      </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-danger d-none" id="deleteSelectedButton">
-          <i class="fas fa-trash me-2"></i>
-          Eliminar Seleccionados
-        </button>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registroModal">
-          <i class="fas fa-plus me-2"></i>
-          Registrar Nuevo
-        </button>
-      </div>
-    </div>
-
-    <!-- Filtros -->
-    <div class="filters-container slide-in">
-      <div class="row g-3">
-        <div class="col-md-8">
-          <div class="search-container">
-            <input type="text" class="form-control search-input" id="searchInput" placeholder="Buscar por radicado, remitente o asunto..." />
-          </div>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="mark"><i class="fas fa-building-columns"></i></div>
+        <div>
+          <div class="name">Concejo Municipal</div>
+          <div class="place">Nilo · Cundinamarca</div>
         </div>
-        <div class="col-md-4">
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Panel</div>
+        <button class="nav-item active" data-section="dashboard"><i class="fas fa-chart-pie"></i>Dashboard</button>
+        <div class="nav-section-label">Correspondencia</div>
+        <button class="nav-item" data-section="radicacion"><i class="fas fa-file-circle-plus"></i>Radicación</button>
+        <button class="nav-item" data-section="seguimiento"><i class="fas fa-list-check"></i>Seguimiento<span class="badge-count" id="navSeguimientoCount">–</span></button>
+        <button class="nav-item" data-section="documentos"><i class="fas fa-paperclip"></i>Documentos</button>
+      </nav>
+      <div class="sidebar-footer">Sistema de Gestión de Correspondencia</div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn mobile-only" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+        <div class="topbar-search">
+          <i class="fas fa-search"></i>
+          <input type="text" id="searchInput" placeholder="Buscar por radicado, remitente o asunto..." />
+        </div>
+        <div class="topbar-actions">
           <select class="form-select" id="statusFilter">
-            <option value="">
-              <i class="fas fa-filter"></i>
-              Todos los estados
-            </option>
+            <option value="">Todos los estados</option>
             <option value="Recibido">📥 Recibido</option>
             <option value="En Proceso">⚙️ En Proceso</option>
             <option value="Respondido">✅ Respondido</option>
           </select>
+          <div class="topbar-user">CN</div>
         </div>
-      </div>
-    </div>
+      </header>
 
-    <!-- Tabla -->
-    <div class="table-container">
-      <div class="table-responsive">
-          <table class="table table-hover table-bordered align-middle text-center">
-        <thead>
-          <tr>
-            <th scope="col">
-              <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
-            </th>
-            <th scope="col">
-              <i class="fas fa-hashtag me-2"></i>ID
-            </th>
-            <th scope="col">
-              <i class="fas fa-file-alt me-2"></i>Radicado
-            </th>
-            <th scope="col">
-              <i class="fas fa-user me-2"></i>Remitente
-            </th>
-            
-            <th scope="col">
-              <i class="fas fa-subject me-2"></i>Asunto
-            </th>
-            <th scope="col">
-              <i class="fas fa-calendar-plus me-2"></i>Fecha Recibido
-            </th>
-            <th scope="col">
-              <i class="fas fa-clock me-2"></i>Fecha Vencimiento
-            </th>
-            <th scope="col">
-              <i class="fas fa-calendar-check me-2"></i>Fecha Contestación
-            </th>
-            <th scope="col">
-              <i class="fas fa-sticky-note me-2"></i>Observaciones
-            </th>
-            <th scope="col">
-              <i class="fas fa-flag me-2"></i>Estado
-            </th>
-            <th scope="col">
-              <i class="fas fa-cogs me-2"></i>Acciones
-            </th>
-            <th scope="col">
-              <i class="fas fa-paperclip me-2"></i>Adjuntos
-            </th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      </div>
-    </div>
+      <main class="content">
 
-    <!-- Paginación -->
-    <nav aria-label="Navegación de página">
-      <ul class="pagination justify-content-center" id="pagination-controls"></ul>
-    </nav>
-    </div>
-  </main>
+        <!-- ===== DASHBOARD ===== -->
+        <section id="section-dashboard" class="view active">
+          <div class="view-header">
+            <div>
+              <div class="eyebrow">Resumen</div>
+              <h1>Dashboard</h1>
+              <p>Estado general de la correspondencia radicada</p>
+            </div>
+          </div>
 
-  <!-- Modal Registro -->
-  <div class="modal fade" id="registroModal" tabindex="-1" aria-labelledby="registroModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h1 class="modal-title fs-5" id="registroModalLabel">Registrar Nueva Correspondencia</h1>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-        </div>
-        <div class="modal-body">
-          <form id="registroForm">
-            <div class="mb-3">
-              <label for="radicado" class="form-label">
-                <i class="fas fa-file-alt me-2"></i>Número de Radicado
-              </label>
-              <input type="text" class="form-control" id="radicado" required />
+          <div class="kpi-grid" id="kpiGrid">
+            <div class="card kpi-card">
+              <div class="kpi-icon" style="background:var(--primary-soft); color:var(--primary);"><i class="fas fa-inbox"></i></div>
+              <div class="kpi-value" id="kpiTotal">–</div>
+              <div class="kpi-label">Total radicados</div>
             </div>
-            <div class="mb-3">
-              <label for="fechaRecibido" class="form-label">
-                <i class="fas fa-calendar-plus me-2"></i>Fecha de Recibido
-              </label>
-              <input type="date" class="form-control" id="fechaRecibido" required />
+            <div class="card kpi-card">
+              <div class="kpi-icon" style="background:var(--warning-soft); color:var(--warning);"><i class="fas fa-gears"></i></div>
+              <div class="kpi-value" id="kpiProceso">–</div>
+              <div class="kpi-label">En proceso</div>
             </div>
-            <div class="mb-3">
-              <label for="fechaContestacion" class="form-label">
-                <i class="fas fa-calendar-check me-2"></i>Fecha de Contestación
-              </label>
-              <input type="date" class="form-control" id="fechaContestacion"  />
+            <div class="card kpi-card">
+              <div class="kpi-icon" style="background:var(--danger-soft); color:var(--danger);"><i class="fas fa-triangle-exclamation"></i></div>
+              <div class="kpi-value" id="kpiVencidos">–</div>
+              <div class="kpi-label">Vencidos sin responder</div>
             </div>
-            <div class="mb-3">
-              <label for="remitente" class="form-label">
-                <i class="fas fa-user me-2"></i>Remitente
-              </label>
-              <input type="text" class="form-control" id="remitente" required />
+            <div class="card kpi-card">
+              <div class="kpi-icon" style="background:var(--success-soft); color:var(--success);"><i class="fas fa-check"></i></div>
+              <div class="kpi-value" id="kpiRespondido">–</div>
+              <div class="kpi-label">Respondidos</div>
             </div>
-            <div class="mb-3">
-              <label for="cargoEntidad" class="form-label">
-                <i class="fas fa-briefcase me-2"></i>Cargo - Entidad
-              </label>
-              <input type="text" class="form-control" id="cargoEntidad" />
+          </div>
+
+          <div class="dash-grid">
+            <div class="card chart-card">
+              <h3>Por estado</h3>
+              <div class="sub">Distribución de todos los radicados</div>
+              <div id="barChart"></div>
             </div>
-            <div class="mb-3">
-              <label for="formaEnvio" class="form-label">
-                <i class="fas fa-paper-plane me-2"></i>Forma de Envío
-              </label>
-              <select class="form-select" id="formaEnvio" required>
-                <option value="" disabled selected>Seleccione una forma de envío...</option>
-                <option value="fisico">📄 Físico</option>
-                <option value="correo">📧 Correo</option>
-                <option value="pagina">🌐 Página</option>
-              </select>
+            <div class="card list-card">
+              <h3>Próximos a vencer</h3>
+              <div class="sub">Ordenados por urgencia</div>
+              <div id="upcomingList"></div>
             </div>
-            <div class="mb-3">
-              <label for="asunto" class="form-label">
-                <i class="fas fa-subject me-2"></i>Asunto
-              </label>
-              <textarea class="form-control" id="asunto" rows="3" required></textarea>
+          </div>
+        </section>
+
+        <!-- ===== RADICACIÓN ===== -->
+        <section id="section-radicacion" class="view">
+          <div class="view-header">
+            <div>
+              <div class="eyebrow">Correspondencia</div>
+              <h1 id="radicacionTitle">Radicar nueva correspondencia</h1>
+              <p>Registra la información del documento recibido</p>
             </div>
-            <div class="mb-3">
-              <label for="observaciones" class="form-label">
-                <i class="fas fa-sticky-note me-2"></i>Observaciones
-              </label>
-              <textarea class="form-control" id="observaciones" rows="3"></textarea>
+          </div>
+
+          <div class="card form-card">
+            <div class="editing-banner" id="editingBanner">
+              <i class="fas fa-pen"></i>
+              <span>Editando el radicado <strong id="editingRadicadoLabel"></strong></span>
+              <button type="button" id="cancelEditBtn">Cancelar y radicar nuevo</button>
             </div>
-            <div class="mb-3">
-              <label for="tipoSolicitud" class="form-label">
-                <i class="fas fa-list me-2"></i>Tipo de Solicitud
-              </label>
-              <select class="form-select" id="tipoSolicitud" required>
-                <option value="" disabled selected>Seleccione un tipo...</option>
-                <option value="Derecho de Petición">📋 Derecho de Petición</option>
-                <option value="Queja">😠 Queja</option>
-                <option value="Reclamo">⚠️ Reclamo</option>
-                <option value="Sugerencia">💡 Sugerencia</option>
-                <option value="Invitación">🎉 Invitación</option>
-              </select>
+
+            <form id="registroForm">
+              <div class="form-grid">
+                <div>
+                  <label for="radicado"><i class="fas fa-file-alt"></i>Número de Radicado</label>
+                  <input type="text" class="form-control" id="radicado" required />
+                </div>
+                <div>
+                  <label for="tipoSolicitud"><i class="fas fa-list"></i>Tipo de Solicitud</label>
+                  <select class="form-select" id="tipoSolicitud" required>
+                    <option value="" disabled selected>Seleccione un tipo...</option>
+                    <option value="Derecho de Petición">📋 Derecho de Petición</option>
+                    <option value="Queja">😠 Queja</option>
+                    <option value="Reclamo">⚠️ Reclamo</option>
+                    <option value="Sugerencia">💡 Sugerencia</option>
+                    <option value="Invitación">🎉 Invitación</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label for="fechaRecibido"><i class="fas fa-calendar-plus"></i>Fecha de Recibido</label>
+                  <input type="date" class="form-control" id="fechaRecibido" required />
+                </div>
+                <div>
+                  <label for="fechaContestacion"><i class="fas fa-calendar-check"></i>Fecha de Contestación</label>
+                  <input type="date" class="form-control" id="fechaContestacion" />
+                </div>
+
+                <div>
+                  <label for="remitente"><i class="fas fa-user"></i>Remitente</label>
+                  <input type="text" class="form-control" id="remitente" required />
+                </div>
+                <div>
+                  <label for="cargoEntidad"><i class="fas fa-briefcase"></i>Cargo - Entidad</label>
+                  <input type="text" class="form-control" id="cargoEntidad" />
+                </div>
+
+                <div class="full">
+                  <label for="formaEnvio"><i class="fas fa-paper-plane"></i>Forma de Envío</label>
+                  <select class="form-select" id="formaEnvio" required>
+                    <option value="" disabled selected>Seleccione una forma de envío...</option>
+                    <option value="fisico">📄 Físico</option>
+                    <option value="correo">📧 Correo</option>
+                    <option value="pagina">🌐 Página</option>
+                  </select>
+                </div>
+
+                <div class="full">
+                  <label for="asunto"><i class="fas fa-subject"></i>Asunto</label>
+                  <textarea class="form-control" id="asunto" rows="3" required></textarea>
+                </div>
+
+                <div class="full">
+                  <label for="observaciones"><i class="fas fa-sticky-note"></i>Observaciones</label>
+                  <textarea class="form-control" id="observaciones" rows="3"></textarea>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn btn-outline-secondary" id="resetFormBtn">Limpiar</button>
+                <button type="submit" class="btn btn-primary" id="submitRegistroBtn"><i class="fas fa-save me-2"></i>Guardar Registro</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- ===== SEGUIMIENTO ===== -->
+        <section id="section-seguimiento" class="view">
+          <div class="view-header">
+            <div>
+              <div class="eyebrow">Correspondencia</div>
+              <h1>Seguimiento</h1>
+              <p>Consulta, filtra y actualiza el estado de cada radicado</p>
             </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-            <i class="fas fa-times me-2"></i>Cancelar
-          </button>
-          <button type="submit" class="btn btn-primary" form="registroForm">
-            <i class="fas fa-save me-2"></i>Guardar Registro
-          </button>
-        </div>
-      </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-danger d-none" id="deleteSelectedButton"><i class="fas fa-trash me-2"></i>Eliminar seleccionados</button>
+              <button class="btn btn-primary" id="btnNuevoDesdeSeguimiento"><i class="fas fa-plus me-2"></i>Nuevo radicado</button>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th><input class="form-check-input" type="checkbox" id="selectAllCheckbox"></th>
+                    <th>ID</th>
+                    <th>Radicado</th>
+                    <th>Remitente</th>
+                    <th>Asunto</th>
+                    <th>Recibido</th>
+                    <th>Vencimiento</th>
+                    <th>Contestación</th>
+                    <th>Observaciones</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                    <th>Adjuntos</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <nav aria-label="Navegación de página">
+            <ul class="pagination justify-content-center mt-3" id="pagination-controls"></ul>
+          </nav>
+        </section>
+
+        <!-- ===== DOCUMENTOS ===== -->
+        <section id="section-documentos" class="view">
+          <div class="view-header">
+            <div>
+              <div class="eyebrow">Correspondencia</div>
+              <h1>Documentos</h1>
+              <p>Archivos adjuntos por radicado</p>
+            </div>
+          </div>
+
+          <div class="doc-tabs">
+            <button class="doc-tab active" data-doc-filter="todos">Todos</button>
+            <button class="doc-tab" data-doc-filter="con">Con adjunto</button>
+            <button class="doc-tab" data-doc-filter="sin">Sin adjunto</button>
+          </div>
+
+          <div class="doc-grid" id="docGrid"></div>
+        </section>
+
+      </main>
     </div>
   </div>
 
@@ -418,41 +534,36 @@ th {
           <p><strong>Archivo Adjunto:</strong> <span id="detalle-adjunto"></span></p>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-            <i class="fas fa-times me-2"></i>Cerrar
-          </button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Modal Adjuntar -->
   <div class="modal fade" id="adjuntarModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h1 class="modal-title fs-5">Adjuntar Archivo</h1>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <form id="adjuntarForm">
-          <p>Adjuntar archivo para el registro ID: <strong id="adjuntar-id"></strong></p>
-          <div class="mb-3">
-            <label for="fileInput" class="form-label">Seleccionar archivo</label>
-            <input class="form-control" type="file" id="fileInput" required>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-          <i class="fas fa-times me-2"></i>Cancelar
-        </button>
-        <button type="submit" class="btn btn-primary" form="adjuntarForm">
-          <i class="fas fa-upload me-2"></i>Subir Archivo
-        </button>
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5">Adjuntar Archivo</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="adjuntarForm">
+            <p>Adjuntar archivo para el registro ID: <strong id="adjuntar-id"></strong></p>
+            <div class="mb-3">
+              <label for="fileInput" class="form-label">Seleccionar archivo</label>
+              <input class="form-control" type="file" id="fileInput" required>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" form="adjuntarForm"><i class="fas fa-upload me-2"></i>Subir Archivo</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
