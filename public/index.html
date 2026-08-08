@@ -623,6 +623,12 @@
           <p><strong>Fecha de Contestación:</strong> <span id="detalle-fechaContestacion"></span></p>
           <p><strong>Observaciones:</strong> <span id="detalle-observaciones"></span></p>
           <p><strong>Archivo Adjunto:</strong> <span id="detalle-adjunto"></span></p>
+          <hr>
+          <div id="detalle-respuesta-wrap" class="d-none">
+            <p><strong>Respuesta enviada el:</strong> <span id="detalle-respuestaFecha"></span></p>
+            <p><strong>Mensaje enviado:</strong><br><span id="detalle-respuestaMensaje"></span></p>
+            <p><strong>Archivo de respuesta:</strong> <span id="detalle-respuestaArchivo"></span></p>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -651,6 +657,42 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-primary" form="adjuntarForm"><i class="fas fa-upload me-2"></i>Subir Archivo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Contestar -->
+  <div class="modal fade" id="contestarModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5"><i class="fas fa-reply me-2"></i>Responder radicado</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="contestarSinCorreo" class="alert alert-warning d-none" style="font-size:.85rem;">
+            Este radicado no tiene correo de remitente registrado. Agrégalo desde <strong>Radicación</strong> (editar) antes de poder responderlo desde aquí.
+          </div>
+          <form id="contestarForm">
+            <p class="mb-2" style="font-size:.85rem;">
+              Radicado <strong id="contestar-radicado"></strong> · para
+              <strong id="contestar-correo"></strong>
+            </p>
+            <div class="mb-3">
+              <label for="contestarMensaje" class="form-label">Mensaje de respuesta</label>
+              <textarea class="form-control" id="contestarMensaje" rows="6" required></textarea>
+              <div class="field-hint">Este texto se enviará por correo al remitente y quedará guardado como respuesta oficial del radicado.</div>
+            </div>
+            <div class="mb-3">
+              <label for="contestarFile" class="form-label">Adjuntar documento de respuesta (opcional)</label>
+              <input class="form-control" type="file" id="contestarFile">
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" form="contestarForm" id="contestarSubmitBtn"><i class="fas fa-paper-plane me-2"></i>Enviar respuesta</button>
         </div>
       </div>
     </div>

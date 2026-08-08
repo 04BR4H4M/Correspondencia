@@ -14,6 +14,7 @@ import {
 import { CorrespondenciaService } from './correspondencia.service';
 import { CreateCorrespondenciaDto } from './dto/create-correspondencia.dto';
 import { UpdateCorrespondenciaDto } from './dto/update-correspondencia.dto';
+import { ContestarCorrespondenciaDto } from './dto/contestar-correspondencia.dto';
 import { EstadoSolicitud } from './entities/correspondencia.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BulkDeleteDto } from './dto/bulk-delete.dto'; // Asegúrate de tener este DTO para manejar la eliminación masiva
@@ -93,6 +94,29 @@ export class CorrespondenciaController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.correspondenciaService.adjuntarArchivo(+id, file);
+  }
+
+  /**
+   * ✅ Eliminar el archivo adjunto de Google Drive
+   * DELETE /correspondencia/:id/adjunto
+   */
+  @Delete(':id/adjunto')
+  eliminarArchivo(@Param('id') id: string) {
+    return this.correspondenciaService.eliminarArchivo(+id);
+  }
+
+  /**
+   * ✅ Contestar el radicado desde el aplicativo (envía el correo y deja trazabilidad)
+   * POST /correspondencia/:id/contestar
+   */
+  @Post(':id/contestar')
+  @UseInterceptors(FileInterceptor('file'))
+  contestar(
+    @Param('id') id: string,
+    @Body() contestarDto: ContestarCorrespondenciaDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.correspondenciaService.contestar(+id, contestarDto, file);
   }
   // Dentro de CorrespondenciaController
 @Get('test/verificar-drive')

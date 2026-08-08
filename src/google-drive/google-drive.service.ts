@@ -14,7 +14,7 @@ export class GoogleDriveService {
     });
     this.drive = google.drive({ version: 'v3', auth });
   }
-async uploadFile(file: Express.Multer.File): Promise<string> {
+async uploadFile(file: Express.Multer.File): Promise<{ id: string; webViewLink: string }> {
   const bufferStream = new stream.PassThrough();
   bufferStream.end(file.buffer);
 
@@ -42,7 +42,14 @@ async uploadFile(file: Express.Multer.File): Promise<string> {
     supportsAllDrives: true, // <-- AÑADIR TAMBIÉN AQUÍ
   });
 
-  return response.data.webViewLink;
+  return { id: response.data.id, webViewLink: response.data.webViewLink };
+}
+
+async deleteFile(fileId: string): Promise<void> {
+  await this.drive.files.delete({
+    fileId,
+    supportsAllDrives: true,
+  });
 }
 
 async verifyFolderAccess() {

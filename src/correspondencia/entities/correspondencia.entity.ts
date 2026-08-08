@@ -53,7 +53,10 @@ fechaContestacion: Date | null;
 cargoEntidad: string;
 
 @Column({ type: 'varchar', length: 255, nullable: true }) // Nueva columna
-archivosAnexos: string; // Guardaremos la ruta o nombre del archivo aquí
+archivosAnexos: string | null; // Guardaremos la ruta o nombre del archivo aquí
+
+@Column({ type: 'varchar', length: 255, nullable: true })
+archivoAnexoId: string | null; // ID del archivo en Google Drive, necesario para poder eliminarlo
 
 @Column({ type: 'varchar', length: 50, nullable: true }) // Nueva columna
 formaEnvio: string;
@@ -63,5 +66,18 @@ observaciones: string;
 
 @Column({ type: 'varchar', length: 255, nullable: true }) // Nueva columna
 correoRemitente: string;
+
+// --- Trazabilidad de la respuesta enviada desde el aplicativo ---
+@Column({ type: 'text', nullable: true })
+respuestaMensaje: string;
+
+@Column({ type: 'datetime', nullable: true })
+respuestaEnviadaEn: Date | null;
+
+@Column({ type: 'varchar', length: 255, nullable: true })
+archivoRespuesta: string | null;
+
+@Column({ type: 'varchar', length: 255, nullable: true })
+archivoRespuestaId: string | null;
 
 }

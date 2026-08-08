@@ -295,12 +295,16 @@ document.addEventListener('DOMContentLoaded', () => {
   <td>
     <div class="btn-group-actions">
       <button class="btn btn-info btn-sm btn-ver" data-id="${registro.id}" title="Ver detalle"><i class="fas fa-eye"></i></button>
+      <button class="btn btn-success btn-sm btn-contestar" data-id="${registro.id}" title="Responder"><i class="fas fa-reply"></i></button>
       <button class="btn btn-warning btn-sm btn-editar" data-id="${registro.id}" title="Editar"><i class="fas fa-edit"></i></button>
       <button class="btn btn-danger btn-sm btn-eliminar" data-id="${registro.id}" title="Eliminar"><i class="fas fa-trash"></i></button>
     </div>
   </td>
   <td>
-    <button class="btn btn-secondary btn-sm btn-adjuntar" data-id="${registro.id}" title="Adjuntar archivo"><i class="fas fa-paperclip"></i></button>
+    <div class="btn-group-actions">
+      <button class="btn btn-secondary btn-sm btn-adjuntar" data-id="${registro.id}" title="Adjuntar archivo"><i class="fas fa-paperclip"></i></button>
+      ${registro.archivosAnexos ? `<button class="btn btn-outline-danger btn-sm btn-eliminar-adjunto" data-id="${registro.id}" title="Eliminar archivo adjunto"><i class="fas fa-file-circle-xmark"></i></button>` : ''}
+    </div>
   </td>
 </tr>`;
           tbody.innerHTML += fila;
@@ -384,6 +388,21 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           adjuntoContainer.textContent = 'No hay archivos adjuntos.';
         }
+
+        const respuestaWrap = document.getElementById('detalle-respuesta-wrap');
+        if (registro.respuestaMensaje) {
+          respuestaWrap.classList.remove('d-none');
+          document.getElementById('detalle-respuestaFecha').textContent = registro.respuestaEnviadaEn
+            ? new Date(registro.respuestaEnviadaEn).toLocaleString('es-ES')
+            : 'N/A';
+          document.getElementById('detalle-respuestaMensaje').textContent = registro.respuestaMensaje;
+          document.getElementById('detalle-respuestaArchivo').innerHTML = registro.archivoRespuesta
+            ? `<a href="${registro.archivoRespuesta}" target="_blank">Ver archivo enviado</a>`
+            : 'Sin archivo adjunto';
+        } else {
+          respuestaWrap.classList.add('d-none');
+        }
+
         detalleModal.show();
       } catch (err) {
         console.error(err);
@@ -428,6 +447,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (target.classList.contains('btn-adjuntar') || target.closest('.btn-adjuntar')) {
       const btn = target.classList.contains('btn-adjuntar') ? target : target.closest('.btn-adjuntar');
       abrirModalAdjuntar(btn.dataset.id);
+      return;
+    }
+
+    if (target.classList.contains('btn-eliminar-adjunto') || target.closest('.btn-eliminar-adjunto')) {
+      const btn = target.classList.contains('btn-eliminar-adjunto') ? target : target.closest('.btn-eliminar-adjunto');
+      eliminarArchivoAdjunto(btn.dataset.id, () => cargarCorrespondencia(currentPage));
+      return;
+    }
+
+    if (target.classList.contains('btn-contestar') || target.closest('.btn-contestar')) {
+      const btn = target.classList.contains('btn-contestar') ? target : target.closest('.btn-contestar');
+      abrirModalContestar(btn.dataset.id);
     }
   });
 
@@ -623,7 +654,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="doc-meta"><i class="fas fa-flag me-1"></i>${r.estado} · ${urgencyLabel(r.estado, r.fechaVencimiento)}</div>
           <div class="doc-actions">
             ${r.archivosAnexos
-              ? `<a href="${r.archivosAnexos}" target="_blank" class="btn btn-info btn-sm"><i class="fas fa-eye me-1"></i>Ver archivo</a>`
+              ? `<a href="${r.archivosAnexos}" target="_blank" class="btn btn-info btn-sm"><i class="fas fa-eye me-1"></i>Ver</a>
+                 <button class="btn btn-outline-danger btn-sm btn-eliminar-adjunto" data-id="${r.id}"><i class="fas fa-trash me-1"></i>Eliminar</button>`
               : `<button class="btn btn-secondary btn-sm btn-adjuntar-doc" data-id="${r.id}"><i class="fas fa-paperclip me-1"></i>Adjuntar</button>`}
           </div>
         </div>`;
@@ -635,8 +667,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   docGrid.addEventListener('click', (e) => {
-    const btn = e.target.closest('.btn-adjuntar-doc');
-    if (btn) abrirModalAdjuntar(btn.dataset.id);
+    const btnAdjuntar = e.target.closest('.btn-adjuntar-doc');
+    if (btnAdjuntar) return abrirModalAdjuntar(btnAdjuntar.dataset.id);
+
+    const btnEliminar = e.target.closest('.btn-eliminar-adjunto');
+    if (btnEliminar) return eliminarArchivoAdjunto(btnEliminar.dataset.id, cargarDocumentos);
   });
 
   // ==========================================================
@@ -802,6 +837,87 @@ document.addEventListener('DOMContentLoaded', () => {
     tutorialModal.hide();
   });
   openTutorialBtn.addEventListener('click', abrirTutorial);
+
+  // ==========================================================
+  // ELIMINAR ARCHIVO ADJUNTO (Drive)
+  // ==========================================================
+  async function eliminarArchivoAdjunto(id, onDone) {
+    if (!confirm('¿Eliminar el archivo adjunto de este radicado? Esto también lo borra de Google Drive.')) return;
+    try {
+      const res = await fetch(`${API_BASE}/${id}/adjunto`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('No se pudo eliminar el archivo.');
+      showToast('Archivo eliminado de Drive', 'success');
+      if (onDone) onDone();
+    } catch (err) {
+      console.error(err);
+      showToast('No se pudo eliminar el archivo.', 'error');
+    }
+  }
+
+  // ==========================================================
+  // MÓDULO DE CONTESTACIÓN
+  // ==========================================================
+  const contestarModalElement = document.getElementById('contestarModal');
+  const contestarModal = new bootstrap.Modal(contestarModalElement);
+  const contestarForm = document.getElementById('contestarForm');
+  const contestarSinCorreo = document.getElementById('contestarSinCorreo');
+  const contestarSubmitBtn = document.getElementById('contestarSubmitBtn');
+  let idParaContestar = null;
+
+  async function abrirModalContestar(id) {
+    try {
+      const res = await fetch(`${API_BASE}/${id}`);
+      const registro = await res.json();
+      idParaContestar = id;
+
+      document.getElementById('contestar-radicado').textContent = registro.radicado;
+      document.getElementById('contestar-correo').textContent = registro.correoRemitente || 'sin correo registrado';
+      document.getElementById('contestarMensaje').value = registro.respuestaMensaje || '';
+
+      const tieneCorreo = !!registro.correoRemitente;
+      contestarSinCorreo.classList.toggle('d-none', tieneCorreo);
+      contestarSubmitBtn.disabled = !tieneCorreo;
+
+      contestarModal.show();
+    } catch (err) {
+      console.error(err);
+      showToast('No se pudo cargar el radicado.', 'error');
+    }
+  }
+
+  contestarForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!idParaContestar) return;
+
+    const originalText = contestarSubmitBtn.innerHTML;
+    contestarSubmitBtn.innerHTML = '<div class="loading-spinner"></div> Enviando...';
+    contestarSubmitBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('mensaje', document.getElementById('contestarMensaje').value);
+    const file = document.getElementById('contestarFile').files[0];
+    if (file) formData.append('file', file);
+
+    try {
+      const res = await fetch(`${API_BASE}/${idParaContestar}/contestar`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'No se pudo enviar la respuesta.');
+      }
+      contestarModal.hide();
+      contestarForm.reset();
+      showToast('Respuesta enviada y registrada con éxito', 'success');
+      cargarNotificaciones();
+      if (document.getElementById('section-seguimiento').classList.contains('active')) cargarCorrespondencia(currentPage);
+      if (document.getElementById('section-dashboard').classList.contains('active')) cargarDashboard();
+    } catch (err) {
+      console.error(err);
+      showToast(Array.isArray(err.message) ? err.message.join(' ') : err.message, 'error');
+    } finally {
+      contestarSubmitBtn.innerHTML = originalText;
+      contestarSubmitBtn.disabled = false;
+    }
+  });
 
   // --- INICIO ---
   cargarDashboard();

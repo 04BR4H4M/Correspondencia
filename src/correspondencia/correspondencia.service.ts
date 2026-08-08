@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, Not } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -12,6 +12,7 @@ import {
 } from './entities/correspondencia.entity';
 import { CreateCorrespondenciaDto } from './dto/create-correspondencia.dto';
 import { UpdateCorrespondenciaDto } from './dto/update-correspondencia.dto';
+import { ContestarCorrespondenciaDto } from './dto/contestar-correspondencia.dto';
 import { GoogleDriveService } from '../google-drive/google-drive.service';
 import { In } from 'typeorm';
 
@@ -134,9 +135,70 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
   }
 
   async adjuntarArchivo(id: number, file: Express.Multer.File) {
-    const link = await this.googleDriveService.uploadFile(file);
+    const { id: driveId, webViewLink } = await this.googleDriveService.uploadFile(file);
     const registro = await this.findOne(id);
-    registro.archivosAnexos = link;
+    registro.archivosAnexos = webViewLink;
+    registro.archivoAnexoId = driveId;
+    return this.correspondenciaRepository.save(registro);
+  }
+
+  async eliminarArchivo(id: number) {
+    const registro = await this.findOne(id);
+    if (!registro.archivosAnexos) {
+      throw new NotFoundException('Este registro no tiene ningún archivo adjunto.');
+    }
+    if (registro.archivoAnexoId) {
+      await this.googleDriveService.deleteFile(registro.archivoAnexoId);
+    }
+    registro.archivosAnexos = null;
+    registro.archivoAnexoId = null;
+    return this.correspondenciaRepository.save(registro);
+  }
+
+  async contestar(
+    id: number,
+    contestarDto: ContestarCorrespondenciaDto,
+    file?: Express.Multer.File,
+  ) {
+    const registro = await this.findOne(id);
+
+    if (!registro.correoRemitente) {
+      throw new BadRequestException(
+        'Este radicado no tiene un correo de remitente registrado. Edítalo en Radicación para poder responderlo desde aquí.',
+      );
+    }
+
+    let archivoRespuestaLink: string | undefined;
+    let archivoRespuestaId: string | undefined;
+
+    const adjuntosCorreo: { filename: string; content: Buffer }[] = [];
+
+    if (file) {
+      const subido = await this.googleDriveService.uploadFile(file);
+      archivoRespuestaLink = subido.webViewLink;
+      archivoRespuestaId = subido.id;
+      adjuntosCorreo.push({ filename: file.originalname, content: file.buffer });
+    }
+
+    await this.mailerService.sendMail({
+      to: registro.correoRemitente,
+      subject: `Respuesta a su radicado ${registro.radicado}`,
+      text: contestarDto.mensaje,
+      attachments: adjuntosCorreo.length ? adjuntosCorreo : undefined,
+    });
+
+    registro.respuestaMensaje = contestarDto.mensaje;
+    registro.respuestaEnviadaEn = new Date();
+    if (archivoRespuestaLink) {
+      registro.archivoRespuesta = archivoRespuestaLink;
+      registro.archivoRespuestaId = archivoRespuestaId ?? null;
+    }
+    registro.estado = EstadoSolicitud.RESPONDIDO;
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    registro.fechaContestacion = hoy;
+
     return this.correspondenciaRepository.save(registro);
   }
 
