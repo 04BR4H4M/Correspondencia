@@ -180,12 +180,31 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       adjuntosCorreo.push({ filename: file.originalname, content: file.buffer });
     }
 
-    await this.mailerService.sendMail({
-      to: registro.correoRemitente,
-      subject: `Respuesta a su radicado ${registro.radicado}`,
-      text: contestarDto.mensaje,
-      attachments: adjuntosCorreo.length ? adjuntosCorreo : undefined,
-    });
+    // Convertimos el mensaje de texto plano a HTML simple (respetando saltos de línea).
+    // Es necesario mandar `html` porque @nestjs-modules/mailer solo se salta el paso
+    // de compilar una plantilla Handlebars cuando `mail.data.html` está presente;
+    // si solo mandamos `text`, intenta compilar `template` (que aquí no existe) y falla.
+    const mensajeHtml = contestarDto.mensaje
+      .split('\n')
+      .map((linea) => this.escaparHtml(linea))
+      .join('<br>');
+
+    try {
+      await this.mailerService.sendMail({
+        to: registro.correoRemitente,
+        subject: `Respuesta a su radicado ${registro.radicado}`,
+        text: contestarDto.mensaje,
+        html: mensajeHtml,
+        attachments: adjuntosCorreo.length ? adjuntosCorreo : undefined,
+      });
+    } catch (error) {
+      // Dejamos el error completo en el log del servidor para poder
+      // diagnosticar problemas de SMTP (auth, TLS, etc.) sin exponerlos al cliente.
+      console.error('Error al enviar el correo de respuesta:', error);
+      throw new BadRequestException(
+        'No se pudo enviar el correo de respuesta. Verifica la configuración de correo (host, puerto, usuario/clave) y vuelve a intentarlo.',
+      );
+    }
 
     registro.respuestaMensaje = contestarDto.mensaje;
     registro.respuestaEnviadaEn = new Date();
@@ -204,7 +223,29 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   async manejarAlertasDeVencimiento() {
-    // ... (sin cambios)
+    console.log('Ejecutando revisión de vencimientos...');
+
+    const alerta3Dias = await this.buscarRegistrosPorVencer(3);
+    if (alerta3Dias.length > 0) {
+      await this.enviarCorreoResumen(
+        alerta3Dias,
+        'ALERTA URGENTE: Registros vencen en 3 días',
+      );
+    }
+
+    const alerta1Dia = await this.buscarRegistrosPorVencer(1);
+    if (alerta1Dia.length > 0) {
+      await this.enviarCorreoResumen(
+        alerta1Dia,
+        'ALERTA FINAL: Registros vencen MAÑANA',
+      );
+    }
+
+    return {
+      ejecutadoEn: new Date().toISOString(),
+      alerta3Dias: alerta3Dias.map((r) => r.radicado),
+      alerta1Dia: alerta1Dia.map((r) => r.radicado),
+    };
   }
 
   private async buscarRegistrosPorVencer(dias: number): Promise<Correspondencia[]> {
@@ -223,7 +264,30 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
   });
 }
   private async enviarCorreoResumen(registros: Correspondencia[], subject: string) {
-    // ... (sin cambios)
+    const destinatario = process.env.EMAIL_TO;
+    if (!destinatario) {
+      console.error(
+        'No se pudo enviar el correo de alertas: falta la variable EMAIL_TO en el archivo .env.',
+      );
+      return;
+    }
+
+    console.log(`Enviando correo de resumen: ${subject}`);
+    try {
+      await this.mailerService.sendMail({
+        to: destinatario,
+        subject: subject,
+        template: './alerta-vencimiento',
+        context: {
+          titulo: subject,
+          cantidad: registros.length,
+          registros: registros,
+        },
+      });
+      console.log('Correo con plantilla enviado exitosamente.');
+    } catch (error) {
+      console.error('Error al enviar el correo con plantilla:', error);
+    }
   }
 
   private calcularFechaVencimiento(fechaInicio: Date, tipo: TipoSolicitud): Date | null {
@@ -253,6 +317,15 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
   }
   return fechaCalculada;
 }
+
+  private escaparHtml(texto: string): string {
+    return texto
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   async testDriveAccess() {
     return this.googleDriveService.verifyFolderAccess();
   }

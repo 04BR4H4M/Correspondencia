@@ -86,6 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
     searchDebounce = setTimeout(() => {
       if (document.getElementById('section-seguimiento').classList.contains('active')) {
         cargarCorrespondencia(1);
+      } else if (searchInput.value.trim()) {
+        goToSection('seguimiento');
       }
     }, 300);
   });
@@ -96,6 +98,24 @@ document.addEventListener('DOMContentLoaded', () => {
       goToSection('seguimiento');
     }
   });
+
+  // Convierte 'YYYY-MM-DD' (o 'YYYY-MM-DDTHH:mm:ss...') en un Date en la ZONA
+  // HORARIA LOCAL del navegador. `new Date('YYYY-MM-DD')` interpreta ese string
+  // como medianoche UTC, lo que en zonas UTC-negativas (como Bogotá, UTC-5)
+  // muestra el día anterior al formatear con toLocaleDateString(). Por eso NO
+  // usamos `new Date(fechaString)` directamente para mostrar o comparar fechas.
+  const parseFechaLocal = (fecha) => {
+    if (!fecha) return null;
+    const soloFecha = fecha.toString().split('T')[0];
+    const [y, m, d] = soloFecha.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+  };
+
+  const formatFechaLocal = (fecha) => {
+    const d = parseFechaLocal(fecha);
+    return d ? d.toLocaleDateString('es-ES') : null;
+  };
 
   // ==========================================================
   // HELPERS COMPARTIDOS
@@ -112,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const getUrgency = (estado, fechaVencimiento) => {
     if (estado === 'Respondido' || !fechaVencimiento) return 'ok';
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const fv = new Date(fechaVencimiento); fv.setHours(0, 0, 0, 0);
+    const fv = parseFechaLocal(fechaVencimiento);
     const diff = Math.round((fv - hoy) / (1000 * 60 * 60 * 24));
     if (diff < 0) return 'overdue';
     if (diff <= 3) return 'soon';
@@ -174,20 +194,21 @@ document.addEventListener('DOMContentLoaded', () => {
       // Próximos a vencer (no respondidos, ordenados por fecha de vencimiento ascendente)
       const proximos = data
         .filter(r => r.estado !== 'Respondido' && r.fechaVencimiento)
-        .sort((a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento))
+        .sort((a, b) => parseFechaLocal(a.fechaVencimiento) - parseFechaLocal(b.fechaVencimiento))
         .slice(0, 6);
 
       if (proximos.length === 0) {
         upcomingList.innerHTML = `<div class="empty-state"><i class="fas fa-circle-check"></i>No hay radicados pendientes por vencer.</div>`;
       } else {
+        const hoyMidnight = new Date(); hoyMidnight.setHours(0, 0, 0, 0);
         upcomingList.innerHTML = proximos.map(r => {
           const u = getUrgency(r.estado, r.fechaVencimiento);
-          const dias = Math.round((new Date(r.fechaVencimiento) - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+          const dias = Math.round((parseFechaLocal(r.fechaVencimiento) - hoyMidnight) / (1000 * 60 * 60 * 24));
           const diasTexto = dias < 0 ? `${Math.abs(dias)} d. vencido` : (dias === 0 ? 'Vence hoy' : `${dias} d. restantes`);
           return `
             <div class="upcoming-item">
               <span class="urgency-dot bg-urgency-${u}"></span>
-              <div>
+              <div class="upcoming-info">
                 <div class="radicado mono">${r.radicado}</div>
                 <div class="asunto">${r.asunto}</div>
               </div>
@@ -272,9 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
   </td>
 
-  <td>${new Date(registro.fechaRecibido).toLocaleDateString('es-ES')}</td>
-  <td>${registro.fechaVencimiento ? new Date(registro.fechaVencimiento).toLocaleDateString('es-ES') : 'N/A'}</td>
-  <td>${registro.fechaContestacion ? new Date(registro.fechaContestacion).toLocaleDateString('es-ES') : 'N/A'}</td>
+  <td>${formatFechaLocal(registro.fechaRecibido) || 'N/A'}</td>
+  <td>${registro.fechaVencimiento ? formatFechaLocal(registro.fechaVencimiento) : 'N/A'}</td>
+  <td>${registro.fechaContestacion ? formatFechaLocal(registro.fechaContestacion) : 'N/A'}</td>
 
   <td>
     <div class="text-truncate-custom" title="${registro.observaciones || 'Sin observaciones'}">
@@ -509,7 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('observaciones').value = registro.observaciones || '';
     document.getElementById('fechaRecibido').value = registro.fechaRecibido || '';
     document.getElementById('fechaContestacion').value = registro.fechaContestacion
-      ? new Date(registro.fechaContestacion).toISOString().split('T')[0] : '';
+      ? registro.fechaContestacion.toString().split('T')[0] : '';
 
     idParaActualizar = registro.id;
     radicacionTitle.textContent = 'Editar radicado';
@@ -700,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .filter(r => r.estado !== 'Respondido')
         .map(r => ({ ...r, urgencia: getUrgency(r.estado, r.fechaVencimiento) }))
         .filter(r => r.urgencia === 'overdue' || r.urgencia === 'soon')
-        .sort((a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
+        .sort((a, b) => parseFechaLocal(a.fechaVencimiento) - parseFechaLocal(b.fechaVencimiento));
 
       if (alertas.length === 0) {
         notifBadge.classList.add('d-none');

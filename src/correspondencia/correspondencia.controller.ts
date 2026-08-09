@@ -124,6 +124,18 @@ verificarDrive() {
   return this.correspondenciaService.testDriveAccess();
 }
 
+/**
+ * ⚠️ SOLO PARA PRUEBAS: dispara manualmente la misma lógica que corre
+ * automáticamente todos los días a las 8am, sin esperar ni tocar la hora
+ * del sistema. Revisa el correo configurado en EMAIL_TO y la consola del
+ * servidor para ver el resultado.
+ * GET /correspondencia/test/verificar-alertas
+ */
+@Get('test/verificar-alertas')
+verificarAlertas() {
+  return this.correspondenciaService.manejarAlertasDeVencimiento();
+}
+
 @Post('bulk-delete')
 removeMany(@Body() bulkDeleteDto: BulkDeleteDto) {
   return this.correspondenciaService.removeMany(bulkDeleteDto.ids);

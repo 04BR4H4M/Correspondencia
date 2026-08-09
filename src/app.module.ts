@@ -35,8 +35,10 @@ import { AppService } from './app.service';
       useFactory: (config: ConfigService) => ({
         transport: {
           host: config.get<string>('EMAIL_HOST'),
-          port: config.get<number>('EMAIL_PORT'),
-          secure: config.get<boolean>('EMAIL_SECURE'),
+          port: parseInt(config.get<string>('EMAIL_PORT') ?? '587', 10),
+          // OJO: dotenv siempre entrega strings. "false" es truthy en JS,
+          // así que hay que compararlo explícitamente contra el string 'true'.
+          secure: config.get<string>('EMAIL_SECURE') === 'true',
           auth: {
             user: config.get<string>('EMAIL_USER'),
             pass: config.get<string>('EMAIL_PASS'),
