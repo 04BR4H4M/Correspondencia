@@ -55,24 +55,31 @@ export class CorrespondenciaService {
     options: { page: number; limit: number; sortBy: string; sortOrder: 'ASC' | 'DESC' },
     search?: string,
     estado?: EstadoSolicitud,
+    tipoSolicitud?: TipoSolicitud,
   ): Promise<{ data: Correspondencia[]; total: number }> {
     const take = options.limit || 10;
     const skip = (options.page - 1) * take;
 
     const queryBuilder = this.correspondenciaRepository.createQueryBuilder('correspondencia');
+    let tieneCondicion = false;
 
     if (search) {
-      // --- CORRECCIÓN 1: Usar .where() para la primera condición ---
-        queryBuilder.where(
+      queryBuilder.where(
       '(correspondencia.radicado LIKE :search OR correspondencia.remitente LIKE :search OR correspondencia.asunto LIKE :search)',
       { search: `%${search}%` }
     );
+      tieneCondicion = true;
     }
 
     if (estado) {
-      const method = search ? 'andWhere' : 'where';
-    queryBuilder[method]('correspondencia.estado = :estado', { estado });
+      queryBuilder[tieneCondicion ? 'andWhere' : 'where']('correspondencia.estado = :estado', { estado });
+      tieneCondicion = true;
   }
+
+    if (tipoSolicitud) {
+      queryBuilder[tieneCondicion ? 'andWhere' : 'where']('correspondencia.tipoSolicitud = :tipoSolicitud', { tipoSolicitud });
+      tieneCondicion = true;
+    }
 
     queryBuilder.orderBy(`correspondencia.${options.sortBy}`, options.sortOrder);
 

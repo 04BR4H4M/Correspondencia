@@ -15,7 +15,7 @@ import { CorrespondenciaService } from './correspondencia.service';
 import { CreateCorrespondenciaDto } from './dto/create-correspondencia.dto';
 import { UpdateCorrespondenciaDto } from './dto/update-correspondencia.dto';
 import { ContestarCorrespondenciaDto } from './dto/contestar-correspondencia.dto';
-import { EstadoSolicitud } from './entities/correspondencia.entity';
+import { EstadoSolicitud, TipoSolicitud } from './entities/correspondencia.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BulkDeleteDto } from './dto/bulk-delete.dto'; // Asegúrate de tener este DTO para manejar la eliminación masiva
 import { UseGuards } from '@nestjs/common';
@@ -43,6 +43,7 @@ export class CorrespondenciaController {
     @Query('limit') limit: string = '10',
     @Query('search') search?: string,
     @Query('estado') estado?: EstadoSolicitud,
+    @Query('tipoSolicitud') tipoSolicitud?: TipoSolicitud,
     @Query('sortBy') sortBy: string = 'id',
     @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'ASC',
   ) {
@@ -53,6 +54,7 @@ export class CorrespondenciaController {
       { page: pageNumber, limit: limitNumber, sortBy, sortOrder },
       search,
       estado,
+      tipoSolicitud,
     );
   }
 

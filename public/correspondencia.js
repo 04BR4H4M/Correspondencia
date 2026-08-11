@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sidebarToggle = document.getElementById('sidebarToggle');
   const searchInput = document.getElementById('searchInput');
   const statusFilter = document.getElementById('statusFilter');
+  const tipoFilter = document.getElementById('tipoFilter');
 
   // --- ELEMENTOS: SEGUIMIENTO (tabla) ---
   const selectAllCheckbox = document.getElementById('selectAllCheckbox');
@@ -109,6 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 300);
   });
   statusFilter.addEventListener('change', () => {
+    if (document.getElementById('section-seguimiento').classList.contains('active')) {
+      cargarCorrespondencia(1);
+    } else {
+      goToSection('seguimiento');
+    }
+  });
+  tipoFilter.addEventListener('change', () => {
     if (document.getElementById('section-seguimiento').classList.contains('active')) {
       cargarCorrespondencia(1);
     } else {
@@ -274,10 +282,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const searchTerm = searchInput.value.trim();
     const status = statusFilter.value;
+    const tipo = tipoFilter.value;
 
     let url = `${API_BASE}?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`;
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
     if (status) url += `&estado=${encodeURIComponent(status)}`;
+    if (tipo) url += `&tipoSolicitud=${encodeURIComponent(tipo)}`;
 
     fetch(url)
       .then(res => res.json())
@@ -769,6 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!item) return;
     searchInput.value = '';
     statusFilter.value = '';
+    tipoFilter.value = '';
     goToSection('seguimiento');
   });
 
