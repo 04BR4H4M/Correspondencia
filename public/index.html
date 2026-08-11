@@ -315,6 +315,40 @@
   .help-link { color: var(--text-muted); font-size: .74rem; cursor: pointer; }
   .help-link:hover { color: #fff; }
 
+  /* ---- Pantalla de inicio de sesión ---- */
+  #loginGate {
+    position: fixed; inset: 0; z-index: 2000;
+    background: linear-gradient(160deg, var(--ink-900), var(--ink-800));
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
+  }
+  #loginGate.hidden { display: none; }
+  .login-card {
+    background: var(--surface); border-radius: 20px; padding: 2.5rem 2.2rem;
+    max-width: 380px; width: 100%; text-align: center; box-shadow: 0 30px 60px -20px rgba(0,0,0,.5);
+  }
+  .login-card .mark {
+    width: 56px; height: 56px; border-radius: 14px; margin: 0 auto 1.2rem;
+    background: linear-gradient(135deg, var(--primary), #60a5fa);
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.5rem;
+  }
+  .login-card h1 { font-size: 1.15rem; font-weight: 800; margin: 0 0 .3rem; }
+  .login-card p { color: var(--text-muted); font-size: .85rem; margin: 0 0 1.6rem; }
+  .btn-google {
+    display: flex; align-items: center; justify-content: center; gap: .6rem;
+    width: 100%; padding: .7rem 1rem; border-radius: 10px; border: 1px solid var(--border);
+    background: #fff; color: #1f2937; font-weight: 600; font-size: .88rem; cursor: pointer; text-decoration: none;
+  }
+  .btn-google:hover { background: #f8fafc; }
+  .btn-google img { width: 18px; height: 18px; }
+  .login-error {
+    margin-top: 1rem; padding: .6rem .8rem; border-radius: 9px; background: var(--danger-soft);
+    color: var(--danger); font-size: .78rem; font-weight: 600; display: none;
+  }
+  .login-error.show { display: block; }
+  #appShell { display: none; }
+  #appShell.ready { display: flex; }
+
   /* ---- Responsive ---- */
   @media (max-width: 1100px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -331,7 +365,21 @@
 </head>
 
 <body>
-  <div class="app-shell">
+  <!-- Pantalla de inicio de sesión -->
+  <div id="loginGate">
+    <div class="login-card">
+      <div class="mark"><i class="fas fa-building-columns"></i></div>
+      <h1>Correspondencia · Concejo de Nilo</h1>
+      <p>Inicia sesión con la cuenta de Google autorizada para acceder al panel.</p>
+      <a class="btn-google" href="/auth/google">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
+        Iniciar sesión con Google
+      </a>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <div class="app-shell" id="appShell">
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -349,10 +397,16 @@
         <button class="nav-item" data-section="radicacion"><i class="fas fa-file-circle-plus"></i>Radicación</button>
         <button class="nav-item" data-section="seguimiento"><i class="fas fa-list-check"></i>Seguimiento<span class="badge-count" id="navSeguimientoCount">–</span></button>
         <button class="nav-item" data-section="documentos"><i class="fas fa-paperclip"></i>Documentos</button>
+        <div class="nav-section-label">Administración</div>
+        <button class="nav-item" data-section="perfil"><i class="fas fa-user-gear"></i>Perfil y correo</button>
       </nav>
       <div class="sidebar-footer">
         Sistema de Gestión de Correspondencia<br>
         <span class="help-link" id="openTutorialBtn"><i class="fas fa-circle-question me-1"></i>Ver tutorial de uso</span>
+        <div style="margin-top:.6rem; padding-top:.6rem; border-top:1px solid rgba(255,255,255,.08);">
+          <div id="sesionCorreo" style="color:#cbd5e1; font-size:.72rem; margin-bottom:.35rem;"></div>
+          <span class="help-link" id="cerrarSesionBtn"><i class="fas fa-right-from-bracket me-1"></i>Cerrar sesión</span>
+        </div>
       </div>
     </aside>
 
@@ -596,6 +650,86 @@
           </div>
 
           <div class="doc-grid" id="docGrid"></div>
+        </section>
+
+        <!-- ===== PERFIL Y CORREO ===== -->
+        <section id="section-perfil" class="view">
+          <div class="view-header">
+            <div>
+              <div class="eyebrow">Administración</div>
+              <h1>Perfil y correo</h1>
+              <p>Datos del administrador y cuenta de correo desde la que se envían las respuestas y notificaciones</p>
+            </div>
+          </div>
+
+          <div class="dash-grid" style="grid-template-columns: 1fr 1.3fr;">
+            <div class="card form-card" style="max-width:none;">
+              <h3 class="mb-3" style="font-size:.92rem; font-weight:700;">Perfil del administrador</h3>
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <div id="perfilFotoPreview" class="topbar-user" style="width:64px; height:64px; font-size:1.4rem;">CN</div>
+                <div>
+                  <label class="btn btn-outline-secondary btn-sm mb-0" for="perfilFotoInput">
+                    <i class="fas fa-camera me-1"></i>Cambiar foto
+                  </label>
+                  <input type="file" id="perfilFotoInput" accept="image/*" class="d-none">
+                  <div class="field-hint mb-0">Se guarda en Google Drive, igual que los demás adjuntos.</div>
+                </div>
+              </div>
+
+              <label for="perfilNombre">Nombre del administrador</label>
+              <input type="text" class="form-control mb-1" id="perfilNombre" placeholder="Ej: Abraham Álvarez" />
+              <div class="field-hint mb-3">Aparece en el panel; por ahora no requiere inicio de sesión.</div>
+
+              <div class="form-actions" style="border-top:none; padding-top:0;">
+                <button class="btn btn-primary" id="guardarPerfilBtn"><i class="fas fa-save me-2"></i>Guardar perfil</button>
+              </div>
+            </div>
+
+            <div class="card form-card" style="max-width:none;">
+              <h3 class="mb-1" style="font-size:.92rem; font-weight:700;">Correo remitente (Gmail corporativo)</h3>
+              <p class="field-hint mb-3">Desde aquí conectas o cambias la cuenta desde la que salen las respuestas de correspondencia y las alertas de vencimiento — sin tocar el código ni redesplegar.</p>
+
+              <div class="form-grid">
+                <div class="full">
+                  <label for="cfgNombreRemitente"><i class="fas fa-signature"></i>Nombre visible del remitente</label>
+                  <input type="text" class="form-control" id="cfgNombreRemitente" placeholder="Ej: Concejo Municipal de Nilo" />
+                </div>
+
+                <div>
+                  <label for="cfgSmtpUser"><i class="fas fa-envelope"></i>Cuenta Gmail</label>
+                  <input type="email" class="form-control" id="cfgSmtpUser" placeholder="correo@gmail.com" />
+                </div>
+                <div>
+                  <label for="cfgSmtpPass"><i class="fas fa-key"></i>Contraseña de aplicación</label>
+                  <input type="password" class="form-control" id="cfgSmtpPass" placeholder="Dejar vacío para no cambiarla" />
+                  <div class="field-hint" id="cfgPassEstado">Sin verificar</div>
+                </div>
+
+                <div>
+                  <label for="cfgSmtpHost"><i class="fas fa-server"></i>Servidor SMTP</label>
+                  <input type="text" class="form-control" id="cfgSmtpHost" placeholder="smtp.gmail.com" />
+                </div>
+                <div>
+                  <label for="cfgSmtpPort"><i class="fas fa-plug"></i>Puerto</label>
+                  <input type="number" class="form-control" id="cfgSmtpPort" placeholder="465" />
+                </div>
+
+                <div class="full form-check ps-0">
+                  <input class="form-check-input ms-0 me-2" type="checkbox" id="cfgSmtpSecure" checked>
+                  <label class="form-check-label" for="cfgSmtpSecure" style="display:inline; font-weight:500;">Conexión segura (SSL) — actívala si usas el puerto 465</label>
+                </div>
+              </div>
+
+              <div class="field-hint mt-2">
+                Para Gmail necesitas una <strong>contraseña de aplicación</strong> (no la contraseña normal de la cuenta), generada en
+                <span class="mono">myaccount.google.com/apppasswords</span> con la verificación en dos pasos activada.
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="guardarConfigBtn"><i class="fas fa-save me-2"></i>Guardar configuración de correo</button>
+              </div>
+            </div>
+          </div>
         </section>
 
       </main>

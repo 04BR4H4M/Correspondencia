@@ -3,41 +3,133 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
-    .header { background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; font-weight: bold; }
-    .content { margin-top: 20px; }
-    .footer { margin-top: 20px; font-size: 12px; text-align: center; color: #777; }
-    .registro { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-    .registro strong { color: #555; }
-  </style>
+  <title>{{ titulo }}</title>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      Sistema de Alertas <br/> 
-      Concejo Municipal de Nilo - Cundinamarca
-    </div>
-    <div class="content">
-      <h1>{{ titulo }}</h1>
-      <p>Se han encontrado {{ cantidad }} registros que requieren atención inmediata:</p>
+<body style="margin:0; padding:0; background-color:#eef1f6; font-family:Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef1f6; padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:14px; overflow:hidden; border:1px solid #e2e8f0;">
 
-      {{#each registros}}
-      <div class="registro">
-        <strong>Radicado:</strong> {{ this.radicado }} <br/>
-        <strong>Remitente:</strong> {{ this.remitente }} <br/>
-        <strong>Tipo:</strong> {{ this.tipoSolicitud }} <br/>  
-        <strong>Asunto:</strong> {{ this.asunto }} <br/>
-        <strong>Vence el:</strong> {{ this.fechaVencimiento }}
-      </div>
-      {{/each}}
+          <!-- Encabezado -->
+          <tr>
+            <td style="background-color:#0f172a; padding:24px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-size:15px; font-weight:bold; color:#ffffff; font-family:Arial, sans-serif;">
+                    Concejo Municipal de Nilo
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:12px; color:#94a3b8; padding-top:2px; font-family:Arial, sans-serif;">
+                    Sistema de Gestión de Correspondencia
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-      <p>Por favor, tomar las acciones correspondientes.</p>
-    </div>
-    <div class="footer">
-      Este es un correo generado automáticamente.
-    </div>
-  </div>
+          <!-- Banda de urgencia -->
+          <tr>
+            <td style="background-color:{{#if esAlta}}#fce8e8{{else}}#fdf1e0{{/if}}; padding:14px 28px; border-bottom:1px solid #e2e8f0;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-size:13px; font-weight:bold; color:{{#if esAlta}}#dc2626{{else}}#d97706{{/if}}; font-family:Arial, sans-serif;">
+                    {{#if esAlta}}⛔ URGENCIA ALTA — vencen mañana{{else}}⚠️ POR VENCER — vencen en 3 días{{/if}}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Contenido -->
+          <tr>
+            <td style="padding:26px 28px 8px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-size:19px; font-weight:bold; color:#0f172a; font-family:Arial, sans-serif; padding-bottom:6px;">
+                    {{ titulo }}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:13px; color:#64748b; font-family:Arial, sans-serif; line-height:1.5; padding-bottom:18px;">
+                    Se {{#if esUno}}encontró{{else}}encontraron{{/if}} <strong style="color:#0f172a;">{{ cantidad }}</strong> radicado(s) que requieren atención antes de que venza el plazo de respuesta.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Tarjetas de registros -->
+          {{#each registros}}
+          <tr>
+            <td style="padding:0 28px 14px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc; border-radius:10px; border-left:4px solid {{#if ../esAlta}}#dc2626{{else}}#d97706{{/if}};">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-family:'Courier New', monospace; font-size:12px; font-weight:bold; color:#0f172a; padding-bottom:6px;">
+                          {{ this.radicado }}
+                        </td>
+                        <td align="right" style="font-size:11px; font-weight:bold; color:{{#if ../esAlta}}#dc2626{{else}}#d97706{{/if}}; font-family:Arial, sans-serif;">
+                          Vence: {{ this.fechaVencimiento }}
+                        </td>
+                      </tr>
+                    </table>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:13px; color:#334155; font-family:Arial, sans-serif; padding-bottom:3px;">
+                          <strong>Remitente:</strong> {{ this.remitente }}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px; color:#334155; font-family:Arial, sans-serif; padding-bottom:3px;">
+                          <strong>Tipo:</strong> {{ this.tipoSolicitud }}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px; color:#334155; font-family:Arial, sans-serif;">
+                          <strong>Asunto:</strong> {{ this.asunto }}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {{/each}}
+
+          <!-- Llamado a la acción -->
+          <tr>
+            <td style="padding:10px 28px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-size:13px; color:#64748b; font-family:Arial, sans-serif; line-height:1.5;">
+                    Ingresa al panel de Seguimiento para responder estos radicados antes de que se venza el plazo legal de respuesta.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Pie -->
+          <tr>
+            <td style="background-color:#f8fafc; padding:16px 28px; border-top:1px solid #e2e8f0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-size:11px; color:#94a3b8; text-align:center; font-family:Arial, sans-serif;">
+                    Correo generado automáticamente por el Sistema de Gestión de Correspondencia. <br> No responder a este mensaje.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

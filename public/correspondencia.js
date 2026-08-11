@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const API_BASE = 'http://localhost:3000/correspondencia';
+  const CONFIG_BASE = 'http://localhost:3000/configuracion';
 
   // --- ELEMENTOS: LAYOUT / NAV ---
   const navItems = document.querySelectorAll('.nav-item[data-section]');
@@ -36,6 +37,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const docGrid = document.getElementById('docGrid');
   const docTabs = document.querySelectorAll('.doc-tab');
 
+  // Corrige un bug conocido de Bootstrap: a veces al cerrar un modal no se
+  // limpia bien el fondo oscuro (backdrop) ni el bloqueo de scroll del body,
+  // dejando la pantalla en gris y todo bloqueado hasta recargar la página.
+  // Este listener limpia esos residuos cada vez que CUALQUIER modal se cierra.
+  document.addEventListener('hidden.bs.modal', () => {
+    // Solo limpiamos si de verdad ya no queda ningún modal abierto.
+    const hayModalAbierto = document.querySelector('.modal.show');
+    if (hayModalAbierto) return;
+
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+  });
+
   // --- ELEMENTOS: NOTIFICACIONES / TOASTS / TUTORIAL ---
   const notifBadge = document.getElementById('notifBadge');
   const notifList = document.getElementById('notifList');
@@ -65,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sidebar.classList.remove('open');
 
     if (section === 'dashboard') cargarDashboard();
+    if (section === 'perfil') cargarPerfil();
     cargarNotificaciones();
     if (section === 'seguimiento') cargarCorrespondencia(1);
     if (section === 'documentos') cargarDocumentos();
@@ -940,11 +957,199 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- INICIO ---
-  cargarDashboard();
-  cargarNotificaciones();
-  restaurarDraftSiExiste();
-  if (!localStorage.getItem(TUTORIAL_KEY)) {
-    setTimeout(abrirTutorial, 500);
+  // ==========================================================
+  // PERFIL Y CORREO (Configuración)
+  // ==========================================================
+  const perfilFotoPreview = document.getElementById('perfilFotoPreview');
+  const perfilFotoInput = document.getElementById('perfilFotoInput');
+  const perfilNombre = document.getElementById('perfilNombre');
+  const guardarPerfilBtn = document.getElementById('guardarPerfilBtn');
+
+  const cfgNombreRemitente = document.getElementById('cfgNombreRemitente');
+  const cfgSmtpUser = document.getElementById('cfgSmtpUser');
+  const cfgSmtpPass = document.getElementById('cfgSmtpPass');
+  const cfgPassEstado = document.getElementById('cfgPassEstado');
+  const cfgSmtpHost = document.getElementById('cfgSmtpHost');
+  const cfgSmtpPort = document.getElementById('cfgSmtpPort');
+  const cfgSmtpSecure = document.getElementById('cfgSmtpSecure');
+  const guardarConfigBtn = document.getElementById('guardarConfigBtn');
+
+  function iniciales(nombre) {
+    if (!nombre) return 'CN';
+    const partes = nombre.trim().split(/\s+/);
+    return ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || 'CN';
   }
+
+  function aplicarAvatarGlobal(config) {
+    const avatares = [document.querySelector('.topbar-user'), perfilFotoPreview].filter(Boolean);
+    avatares.forEach(el => {
+      if (config.fotoPerfilId) {
+        // El webViewLink de Drive abre una página HTML, no sirve como imagen embebida.
+        // El endpoint de miniatura sí devuelve la imagen directamente.
+        el.style.backgroundImage = `url('https://drive.google.com/thumbnail?id=${config.fotoPerfilId}&sz=w200')`;
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+        el.textContent = '';
+      } else {
+        el.style.backgroundImage = '';
+        el.textContent = iniciales(config.nombreAdministrador);
+      }
+    });
+  }
+
+  async function cargarPerfil() {
+    try {
+      const res = await fetch(CONFIG_BASE);
+      const config = await res.json();
+
+      perfilNombre.value = config.nombreAdministrador || '';
+      cfgNombreRemitente.value = config.nombreRemitente || '';
+      cfgSmtpUser.value = config.smtpUser || '';
+      cfgSmtpHost.value = config.smtpHost || '';
+      cfgSmtpPort.value = config.smtpPort || '';
+      cfgSmtpSecure.checked = config.smtpSecure !== false;
+      cfgPassEstado.textContent = config.tieneClaveConfigurada
+        ? 'Ya hay una contraseña guardada — déjalo vacío para conservarla.'
+        : 'Aún no has guardado ninguna contraseña de aplicación.';
+
+      aplicarAvatarGlobal(config);
+    } catch (err) {
+      console.error(err);
+      showToast('No se pudo cargar la configuración.', 'error');
+    }
+  }
+
+  perfilFotoInput.addEventListener('change', async () => {
+    const file = perfilFotoInput.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch(`${CONFIG_BASE}/foto`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error();
+      const config = await res.json();
+      aplicarAvatarGlobal(config);
+      showToast('Foto de perfil actualizada', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('No se pudo subir la foto.', 'error');
+    }
+  });
+
+  guardarPerfilBtn.addEventListener('click', async () => {
+    const originalText = guardarPerfilBtn.innerHTML;
+    guardarPerfilBtn.innerHTML = '<div class="loading-spinner"></div> Guardando...';
+    guardarPerfilBtn.disabled = true;
+    try {
+      const res = await fetch(CONFIG_BASE, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombreAdministrador: perfilNombre.value }),
+      });
+      if (!res.ok) throw new Error();
+      const config = await res.json();
+      aplicarAvatarGlobal(config);
+      showToast('Perfil guardado', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('No se pudo guardar el perfil.', 'error');
+    } finally {
+      guardarPerfilBtn.innerHTML = originalText;
+      guardarPerfilBtn.disabled = false;
+    }
+  });
+
+  guardarConfigBtn.addEventListener('click', async () => {
+    const originalText = guardarConfigBtn.innerHTML;
+    guardarConfigBtn.innerHTML = '<div class="loading-spinner"></div> Guardando...';
+    guardarConfigBtn.disabled = true;
+
+    const payload = {
+      nombreRemitente: cfgNombreRemitente.value,
+      smtpUser: cfgSmtpUser.value,
+      smtpHost: cfgSmtpHost.value,
+      smtpPort: cfgSmtpPort.value ? parseInt(cfgSmtpPort.value, 10) : undefined,
+      smtpSecure: cfgSmtpSecure.checked,
+    };
+    if (cfgSmtpPass.value) payload.smtpPass = cfgSmtpPass.value;
+
+    try {
+      const res = await fetch(CONFIG_BASE, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(Array.isArray(err.message) ? err.message.join(' ') : err.message);
+      }
+      cfgSmtpPass.value = '';
+      showToast('Configuración de correo guardada', 'success');
+      cargarPerfil();
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || 'No se pudo guardar la configuración.', 'error');
+    } finally {
+      guardarConfigBtn.innerHTML = originalText;
+      guardarConfigBtn.disabled = false;
+    }
+  });
+
+  // ==========================================================
+  // SESIÓN (login con Google)
+  // ==========================================================
+  const loginGate = document.getElementById('loginGate');
+  const appShell = document.getElementById('appShell');
+  const loginError = document.getElementById('loginError');
+  const sesionCorreo = document.getElementById('sesionCorreo');
+  const cerrarSesionBtn = document.getElementById('cerrarSesionBtn');
+
+  const MENSAJES_ERROR_LOGIN = {
+    no_autorizado: 'Esa cuenta de Google no está autorizada para entrar a este panel.',
+    sin_configurar: 'Aún no se ha configurado ningún correo autorizado en el servidor.',
+  };
+
+  function mostrarErrorLoginSiAplica() {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('auth_error');
+    if (error) {
+      loginError.textContent = MENSAJES_ERROR_LOGIN[error] || 'No se pudo iniciar sesión.';
+      loginError.classList.add('show');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }
+
+  cerrarSesionBtn.addEventListener('click', async () => {
+    try {
+      await fetch('/auth/logout', { method: 'POST' });
+    } finally {
+      window.location.reload();
+    }
+  });
+
+  async function verificarSesionYArrancar() {
+    mostrarErrorLoginSiAplica();
+    try {
+      const res = await fetch('/auth/me');
+      if (!res.ok) throw new Error('sin sesión');
+      const usuario = await res.json();
+
+      loginGate.classList.add('hidden');
+      appShell.classList.add('ready');
+      sesionCorreo.innerHTML = `<i class="fas fa-circle-user me-1"></i>${usuario.email}`;
+
+      cargarDashboard();
+      cargarNotificaciones();
+      restaurarDraftSiExiste();
+      fetch(CONFIG_BASE).then(r => r.json()).then(aplicarAvatarGlobal).catch(() => {});
+      if (!localStorage.getItem(TUTORIAL_KEY)) {
+        setTimeout(abrirTutorial, 500);
+      }
+    } catch {
+      // No hay sesión: se queda mostrando la pantalla de login, no hacemos nada más.
+    }
+  }
+
+  // --- INICIO ---
+  verificarSesionYArrancar();
 });

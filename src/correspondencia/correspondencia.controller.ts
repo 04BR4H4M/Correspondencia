@@ -18,8 +18,11 @@ import { ContestarCorrespondenciaDto } from './dto/contestar-correspondencia.dto
 import { EstadoSolicitud } from './entities/correspondencia.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BulkDeleteDto } from './dto/bulk-delete.dto'; // Asegúrate de tener este DTO para manejar la eliminación masiva
+import { UseGuards } from '@nestjs/common';
+import { SessionAuthGuard } from '../auth/session-auth.guard';
 
 @Controller('correspondencia')
+@UseGuards(SessionAuthGuard)
 export class CorrespondenciaController {
   constructor(
     private readonly correspondenciaService: CorrespondenciaService,

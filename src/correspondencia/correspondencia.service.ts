@@ -2,8 +2,10 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, Not } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { MailerService } from '@nestjs-modules/mailer';
 import * as nodemailer from 'nodemailer';
+import * as handlebars from 'handlebars';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
 import {
   Correspondencia,
@@ -14,6 +16,7 @@ import { CreateCorrespondenciaDto } from './dto/create-correspondencia.dto';
 import { UpdateCorrespondenciaDto } from './dto/update-correspondencia.dto';
 import { ContestarCorrespondenciaDto } from './dto/contestar-correspondencia.dto';
 import { GoogleDriveService } from '../google-drive/google-drive.service';
+import { ConfiguracionService } from '../configuracion/configuracion.service';
 import { In } from 'typeorm';
 
 @Injectable()
@@ -21,8 +24,8 @@ export class CorrespondenciaService {
   constructor(
     @InjectRepository(Correspondencia)
     private correspondenciaRepository: Repository<Correspondencia>,
-    private readonly mailerService: MailerService,
     private readonly googleDriveService: GoogleDriveService,
+    private readonly configuracionService: ConfiguracionService,
   ) {}
 
   async create(createCorrespondenciaDto: CreateCorrespondenciaDto): Promise<Correspondencia> {
@@ -190,7 +193,11 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       .join('<br>');
 
     try {
-      await this.mailerService.sendMail({
+      const transporter = await this.configuracionService.getTransporter();
+      const from = await this.configuracionService.getFromAddress();
+
+      await transporter.sendMail({
+        from,
         to: registro.correoRemitente,
         subject: `Respuesta a su radicado ${registro.radicado}`,
         text: contestarDto.mensaje,
@@ -230,6 +237,7 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       await this.enviarCorreoResumen(
         alerta3Dias,
         'ALERTA URGENTE: Registros vencen en 3 días',
+        'media',
       );
     }
 
@@ -238,6 +246,7 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       await this.enviarCorreoResumen(
         alerta1Dia,
         'ALERTA FINAL: Registros vencen MAÑANA',
+        'alta',
       );
     }
 
@@ -263,7 +272,11 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
     },
   });
 }
-  private async enviarCorreoResumen(registros: Correspondencia[], subject: string) {
+  private async enviarCorreoResumen(
+    registros: Correspondencia[],
+    subject: string,
+    nivelUrgencia: 'media' | 'alta',
+  ) {
     const destinatario = process.env.EMAIL_TO;
     if (!destinatario) {
       console.error(
@@ -274,15 +287,26 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
 
     console.log(`Enviando correo de resumen: ${subject}`);
     try {
-      await this.mailerService.sendMail({
+      const transporter = await this.configuracionService.getTransporter();
+      const from = await this.configuracionService.getFromAddress();
+
+      const rutaPlantilla = join(process.cwd(), 'templates', 'alerta-vencimiento.hbs');
+      const plantillaCruda = await readFile(rutaPlantilla, 'utf8');
+      const plantillaCompilada = handlebars.compile(plantillaCruda);
+      const html = plantillaCompilada({
+        titulo: subject,
+        cantidad: registros.length,
+        registros: registros,
+        nivelUrgencia,
+        esAlta: nivelUrgencia === 'alta',
+        esUno: registros.length === 1,
+      });
+
+      await transporter.sendMail({
+        from,
         to: destinatario,
         subject: subject,
-        template: './alerta-vencimiento',
-        context: {
-          titulo: subject,
-          cantidad: registros.length,
-          registros: registros,
-        },
+        html,
       });
       console.log('Correo con plantilla enviado exitosamente.');
     } catch (error) {
