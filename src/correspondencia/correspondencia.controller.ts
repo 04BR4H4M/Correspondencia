@@ -10,6 +10,9 @@ import {
   Query,
   UseInterceptors,
   UploadedFile,
+  StreamableFile,
+  Header,
+  BadRequestException,
 } from '@nestjs/common';
 import { CorrespondenciaService } from './correspondencia.service';
 import { CreateCorrespondenciaDto } from './dto/create-correspondencia.dto';
@@ -145,4 +148,50 @@ verificarAlertas() {
 removeMany(@Body() bulkDeleteDto: BulkDeleteDto) {
   return this.correspondenciaService.removeMany(bulkDeleteDto.ids);
 }
+
+  /**
+   * ✅ Descarga la ficha de trazabilidad de un radicado en PDF
+   * GET /correspondencia/:id/informe-pdf
+   */
+  @Get(':id/informe-pdf')
+  @Header('Content-Type', 'application/pdf')
+  async descargarInformePdf(@Param('id') id: string) {
+    const registro = await this.correspondenciaService.findOne(+id);
+    const buffer = await this.correspondenciaService.generarInformePdf(+id);
+    const nombreArchivo = `informe-${registro.radicado.replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`;
+
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${nombreArchivo}"`,
+    });
+  }
+
+  /**
+   * ✅ Descarga el informe de gestión/cumplimiento en PDF para un periodo
+   * GET /correspondencia/informes/periodo-pdf?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&titulo=...
+   */
+  @Get('informes/periodo-pdf')
+  @Header('Content-Type', 'application/pdf')
+  async descargarInformePeriodoPdf(
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+    @Query('titulo') titulo: string,
+    @Query('estado') estado?: EstadoSolicitud,
+    @Query('tipoSolicitud') tipoSolicitud?: TipoSolicitud,
+  ) {
+    if (!desde || !hasta) {
+      throw new BadRequestException('Debes indicar la fecha de inicio y fin del periodo.');
+    }
+
+    const buffer = await this.correspondenciaService.generarInformePeriodoPdf(
+      desde,
+      hasta,
+      titulo || `${desde} a ${hasta}`,
+      estado,
+      tipoSolicitud,
+    );
+
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="informe-gestion-${desde}_a_${hasta}.pdf"`,
+    });
+  }
 }

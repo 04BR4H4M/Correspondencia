@@ -6,6 +6,7 @@ import * as nodemailer from 'nodemailer';
 import * as handlebars from 'handlebars';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import * as PDFDocument from 'pdfkit';
 
 import {
   Correspondencia,
@@ -369,4 +370,320 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
     id: In(ids),
   });
 }
+
+  // ==========================================================
+  // INFORMES EN PDF
+  // ==========================================================
+
+  private formatearFechaPdf(fecha: Date | string | null): string {
+    if (!fecha) return 'No aplica';
+    const d = new Date(fecha);
+    return d.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  private colores = {
+    texto: '#0f172a',
+    muted: '#64748b',
+    primario: '#2563eb',
+    borde: '#e2e8f0',
+    exito: '#059669',
+    advertencia: '#d97706',
+    peligro: '#dc2626',
+  };
+
+  private dibujarEncabezadoPdf(doc: PDFKit.PDFDocument, eyebrow: string, titulo: string, subtitulo?: string) {
+    doc
+      .fillColor(this.colores.texto)
+      .fontSize(16)
+      .font('Helvetica-Bold')
+      .text('Concejo Municipal de Nilo');
+    doc
+      .fillColor(this.colores.muted)
+      .fontSize(9)
+      .font('Helvetica')
+      .text('Sistema de Gestión de Correspondencia · Cundinamarca');
+
+    doc.moveDown(0.6);
+    doc.strokeColor(this.colores.borde).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+    doc.moveDown(1);
+
+    doc.fillColor(this.colores.primario).fontSize(9).font('Helvetica-Bold').text(eyebrow.toUpperCase());
+    doc.fillColor(this.colores.texto).fontSize(13).font('Helvetica-Bold').text(titulo);
+    if (subtitulo) {
+      doc.fillColor(this.colores.muted).fontSize(9).font('Helvetica').text(subtitulo);
+    }
+    doc
+      .fillColor(this.colores.muted)
+      .fontSize(8)
+      .font('Helvetica')
+      .text(`Generado el ${this.formatearFechaPdf(new Date())}`);
+    doc.moveDown(1);
+  }
+
+  /**
+   * Genera la ficha/informe de trazabilidad de un radicado en PDF,
+   * para usar como soporte documental (adjuntar a una solicitud, demanda, etc.).
+   */
+  async generarInformePdf(id: number): Promise<Buffer> {
+    const registro = await this.findOne(id);
+    const { texto: colorTexto, muted: colorMuted, borde: colorBorde } = this.colores;
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      this.dibujarEncabezadoPdf(doc, 'Informe de trazabilidad', `Radicado ${registro.radicado}`);
+
+      const campo = (etiqueta: string, valor: string) => {
+        const y = doc.y;
+        doc.fillColor(colorMuted).fontSize(9).font('Helvetica-Bold').text(etiqueta.toUpperCase(), 50, y, { width: 160 });
+        doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(valor || 'No registrado', 220, y, { width: 325 });
+        doc.moveDown(0.55);
+      };
+
+      const seccion = (titulo: string) => {
+        doc.moveDown(0.3);
+        doc.fillColor(colorTexto).fontSize(11).font('Helvetica-Bold').text(titulo);
+        doc.strokeColor(colorBorde).lineWidth(0.7).moveTo(50, doc.y + 2).lineTo(545, doc.y + 2).stroke();
+        doc.moveDown(0.6);
+      };
+
+      seccion('Datos del radicado');
+      campo('Número de radicado', registro.radicado);
+      campo('Tipo de solicitud', registro.tipoSolicitud);
+      campo('Estado actual', registro.estado);
+      campo('Remitente', registro.remitente);
+      campo('Correo del remitente', registro.correoRemitente || 'No registrado');
+      campo('Cargo / Entidad', registro.cargoEntidad || 'No registrado');
+      campo('Forma de envío', registro.formaEnvio || 'No registrado');
+
+      seccion('Asunto');
+      doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(registro.asunto || 'No registrado', { width: 495 });
+
+      if (registro.observaciones) {
+        seccion('Observaciones');
+        doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(registro.observaciones, { width: 495 });
+      }
+
+      seccion('Trazabilidad');
+      campo('Fecha de recibido', this.formatearFechaPdf(registro.fechaRecibido));
+      campo('Fecha límite de respuesta', this.formatearFechaPdf(registro.fechaVencimiento));
+      campo('Fecha de contestación', this.formatearFechaPdf(registro.fechaContestacion));
+
+      if (registro.respuestaMensaje) {
+        seccion('Respuesta enviada desde el aplicativo');
+        campo('Enviada el', this.formatearFechaPdf(registro.respuestaEnviadaEn));
+        doc.fillColor(colorMuted).fontSize(9).font('Helvetica-Bold').text('MENSAJE ENVIADO');
+        doc.moveDown(0.2);
+        doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(registro.respuestaMensaje, { width: 495 });
+        doc.moveDown(0.4);
+        if (registro.archivoRespuesta) {
+          campo('Archivo de respuesta', registro.archivoRespuesta);
+        }
+      }
+
+      seccion('Archivo adjunto original');
+      campo('Enlace', registro.archivosAnexos || 'Sin archivo adjunto');
+
+      doc.moveDown(2);
+      doc.strokeColor(colorBorde).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+      doc.moveDown(0.5);
+      doc
+        .fillColor(colorMuted)
+        .fontSize(8)
+        .font('Helvetica')
+        .text(
+          'Documento generado automáticamente por el Sistema de Gestión de Correspondencia. ' +
+          'Este informe refleja el estado del radicado al momento de su generación.',
+          { width: 495 },
+        );
+
+      doc.end();
+    });
+  }
+
+  /** Determina si un radicado se respondió/está dentro del término legal, para el informe de cumplimiento. */
+  private calcularCumplimiento(r: Correspondencia): 'A tiempo' | 'Fuera de término' | 'Vencido' | 'En término' | 'N/A' {
+    if (!r.fechaVencimiento) return 'N/A';
+    const vencimiento = new Date(r.fechaVencimiento);
+    if (r.estado === EstadoSolicitud.RESPONDIDO) {
+      if (!r.fechaContestacion) return 'N/A';
+      return new Date(r.fechaContestacion) <= vencimiento ? 'A tiempo' : 'Fuera de término';
+    }
+    return new Date() > vencimiento ? 'Vencido' : 'En término';
+  }
+
+  /**
+   * Genera un informe de gestión/cumplimiento en PDF para un periodo (mes, año o rango),
+   * con conteos por tipo, cumplimiento de términos, y el detalle radicado por radicado.
+   */
+  async generarInformePeriodoPdf(
+    desde: string,
+    hasta: string,
+    tituloPeriodo: string,
+    estado?: EstadoSolicitud,
+    tipoSolicitud?: TipoSolicitud,
+  ): Promise<Buffer> {
+    const queryBuilder = this.correspondenciaRepository
+      .createQueryBuilder('c')
+      .where('c.fechaRecibido BETWEEN :desde AND :hasta', { desde, hasta });
+
+    if (estado) queryBuilder.andWhere('c.estado = :estado', { estado });
+    if (tipoSolicitud) queryBuilder.andWhere('c.tipoSolicitud = :tipoSolicitud', { tipoSolicitud });
+
+    const registros = await queryBuilder.orderBy('c.fechaRecibido', 'ASC').getMany();
+
+    const { texto: colorTexto, muted: colorMuted, borde: colorBorde, exito, advertencia, peligro } = this.colores;
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const filtrosTexto: string[] = [];
+      if (tipoSolicitud) filtrosTexto.push(`Tipo: ${tipoSolicitud}`);
+      if (estado) filtrosTexto.push(`Estado: ${estado}`);
+
+      this.dibujarEncabezadoPdf(
+        doc,
+        'Informe de gestión y cumplimiento',
+        tituloPeriodo,
+        filtrosTexto.length ? `Filtros aplicados — ${filtrosTexto.join(' · ')}` : undefined,
+      );
+
+      // --- Conteos ---
+      const porTipo = new Map<string, number>();
+      let aTiempo = 0, fueraDeTermino = 0, vencidos = 0, enTermino = 0, sinTermino = 0;
+
+      for (const r of registros) {
+        porTipo.set(r.tipoSolicitud, (porTipo.get(r.tipoSolicitud) || 0) + 1);
+        const cumplimiento = this.calcularCumplimiento(r);
+        if (cumplimiento === 'A tiempo') aTiempo++;
+        else if (cumplimiento === 'Fuera de término') fueraDeTermino++;
+        else if (cumplimiento === 'Vencido') vencidos++;
+        else if (cumplimiento === 'En término') enTermino++;
+        else sinTermino++;
+      }
+
+      const seccion = (titulo: string) => {
+        doc.moveDown(0.4);
+        doc.fillColor(colorTexto).fontSize(11).font('Helvetica-Bold').text(titulo);
+        doc.strokeColor(colorBorde).lineWidth(0.7).moveTo(50, doc.y + 2).lineTo(545, doc.y + 2).stroke();
+        doc.moveDown(0.6);
+      };
+
+      seccion('Resumen general');
+      doc.fillColor(colorTexto).fontSize(10).font('Helvetica-Bold').text(`Total de radicados en el periodo: ${registros.length}`);
+      doc.moveDown(0.5);
+
+      doc.fillColor(colorMuted).fontSize(9).font('Helvetica-Bold').text('POR TIPO DE SOLICITUD');
+      doc.moveDown(0.2);
+      if (porTipo.size === 0) {
+        doc.fillColor(colorMuted).fontSize(10).font('Helvetica').text('No se encontraron radicados en este periodo.');
+      }
+      for (const [tipo, cantidad] of porTipo.entries()) {
+        doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(`${tipo}: ${cantidad}`);
+      }
+
+      doc.moveDown(0.6);
+      doc.fillColor(colorMuted).fontSize(9).font('Helvetica-Bold').text('CUMPLIMIENTO DE TÉRMINOS');
+      doc.moveDown(0.2);
+      doc.fillColor(exito).fontSize(10).font('Helvetica-Bold').text(`Respondidos a tiempo: ${aTiempo}`);
+      doc.fillColor(advertencia).fontSize(10).font('Helvetica-Bold').text(`Respondidos fuera de término: ${fueraDeTermino}`);
+      doc.fillColor(peligro).fontSize(10).font('Helvetica-Bold').text(`Vencidos sin responder: ${vencidos}`);
+      doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(`En trámite, dentro del término: ${enTermino}`);
+      doc.fillColor(colorMuted).fontSize(10).font('Helvetica').text(`Sin término legal (sugerencias, invitaciones, etc.): ${sinTermino}`);
+
+      // --- Detalle ---
+      if (registros.length > 0) {
+        doc.addPage();
+        seccion('Detalle de radicados');
+
+        const columnas = [
+          { titulo: 'Radicado', ancho: 65 },
+          { titulo: 'Tipo', ancho: 80 },
+          { titulo: 'Remitente', ancho: 100 },
+          { titulo: 'Recibido', ancho: 60 },
+          { titulo: 'Vencimiento', ancho: 65 },
+          { titulo: 'Estado', ancho: 60 },
+          { titulo: 'Cumple', ancho: 65 },
+        ];
+        const xInicial = 50;
+        const altoFila = 20;
+
+        const truncar = (texto: string, maxCaracteres: number) =>
+          texto && texto.length > maxCaracteres ? texto.slice(0, maxCaracteres - 1) + '…' : (texto || '');
+
+        const dibujarCabeceraTabla = () => {
+          let x = xInicial;
+          doc.fillColor('#f8fafc').rect(xInicial, doc.y, 495, altoFila).fill();
+          doc.fillColor(colorMuted).fontSize(7.5).font('Helvetica-Bold');
+          const y = doc.y + 6;
+          for (const col of columnas) {
+            doc.text(col.titulo.toUpperCase(), x + 3, y, { width: col.ancho - 6 });
+            x += col.ancho;
+          }
+          doc.y += altoFila;
+        };
+
+        dibujarCabeceraTabla();
+
+        const colorCumplimiento = (c: string) =>
+          c === 'A tiempo' ? exito : c === 'Vencido' ? peligro : c === 'Fuera de término' ? advertencia : colorMuted;
+
+        for (const r of registros) {
+          if (doc.y + altoFila > doc.page.height - doc.page.margins.bottom) {
+            doc.addPage();
+            dibujarCabeceraTabla();
+          }
+
+          const cumplimiento = this.calcularCumplimiento(r);
+          const y = doc.y + 5;
+          let x = xInicial;
+
+          const valores = [
+            truncar(r.radicado, 14),
+            truncar(r.tipoSolicitud, 16),
+            truncar(r.remitente, 20),
+            r.fechaRecibido ? new Date(r.fechaRecibido).toLocaleDateString('es-CO') : '—',
+            r.fechaVencimiento ? new Date(r.fechaVencimiento).toLocaleDateString('es-CO') : '—',
+            truncar(r.estado, 12),
+            cumplimiento,
+          ];
+
+          doc.fontSize(7.5).font('Helvetica');
+          valores.forEach((valor, i) => {
+            doc.fillColor(i === 6 ? colorCumplimiento(cumplimiento) : colorTexto);
+            doc.text(valor, x + 3, y, { width: columnas[i].ancho - 6 });
+            x += columnas[i].ancho;
+          });
+
+          doc.strokeColor(colorBorde).lineWidth(0.5).moveTo(xInicial, doc.y + altoFila - 3).lineTo(545, doc.y + altoFila - 3).stroke();
+          doc.y += altoFila;
+        }
+      }
+
+      doc.moveDown(1.5);
+      doc.strokeColor(colorBorde).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+      doc.moveDown(0.5);
+      doc
+        .fillColor(colorMuted)
+        .fontSize(8)
+        .font('Helvetica')
+        .text(
+          'Documento generado automáticamente por el Sistema de Gestión de Correspondencia. ' +
+          'El cumplimiento de términos se calcula con base en el plazo legal de respuesta de cada tipo de solicitud.',
+          { width: 495 },
+        );
+
+      doc.end();
+    });
+  }
 }

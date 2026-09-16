@@ -83,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (section === 'dashboard') cargarDashboard();
     if (section === 'perfil') cargarPerfil();
+    if (section === 'descargas') inicializarDescargas();
     cargarNotificaciones();
     if (section === 'seguimiento') cargarCorrespondencia(1);
     if (section === 'documentos') cargarDocumentos();
@@ -1158,6 +1159,116 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch {
       // No hay sesión: se queda mostrando la pantalla de login, no hacemos nada más.
+    }
+  }
+
+  // ==========================================================
+  // DESCARGAS (informes en PDF)
+  // ==========================================================
+  const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  let descargasInicializado = false;
+
+  function inicializarDescargas() {
+    if (descargasInicializado) return;
+    descargasInicializado = true;
+
+    const anioActual = new Date().getFullYear();
+    const anios = [];
+    for (let a = anioActual + 1; a >= anioActual - 4; a--) anios.push(a);
+
+    const periodoMes = document.getElementById('periodoMes');
+    const periodoAnioMes = document.getElementById('periodoAnioMes');
+    const periodoAnio = document.getElementById('periodoAnio');
+
+    periodoMes.innerHTML = MESES.map((m, i) => `<option value="${i + 1}" ${i === new Date().getMonth() ? 'selected' : ''}>${m}</option>`).join('');
+    periodoAnioMes.innerHTML = anios.map(a => `<option value="${a}" ${a === anioActual ? 'selected' : ''}>${a}</option>`).join('');
+    periodoAnio.innerHTML = anios.map(a => `<option value="${a}" ${a === anioActual ? 'selected' : ''}>${a}</option>`).join('');
+
+    document.getElementById('periodoTipo').addEventListener('change', actualizarVisibilidadPeriodo);
+    actualizarVisibilidadPeriodo();
+
+    document.getElementById('descargarInformePeriodoBtn').addEventListener('click', descargarInformePeriodo);
+
+    let buscadorDebounce;
+    document.getElementById('descargasBuscador').addEventListener('input', (e) => {
+      clearTimeout(buscadorDebounce);
+      const termino = e.target.value.trim();
+      buscadorDebounce = setTimeout(() => buscarParaDescarga(termino), 300);
+    });
+  }
+
+  function actualizarVisibilidadPeriodo() {
+    const tipo = document.getElementById('periodoTipo').value;
+    document.getElementById('periodoMesWrap').style.display = tipo === 'mes' ? 'grid' : 'none';
+    document.getElementById('periodoAnioWrap').style.display = tipo === 'anio' ? 'block' : 'none';
+    document.getElementById('periodoRangoWrap').style.display = tipo === 'rango' ? 'grid' : 'none';
+  }
+
+  function ultimoDiaDelMes(anio, mes) {
+    return new Date(anio, mes, 0).getDate();
+  }
+
+  function descargarInformePeriodo() {
+    const tipo = document.getElementById('periodoTipo').value;
+    let desde, hasta, titulo;
+
+    if (tipo === 'mes') {
+      const mes = parseInt(document.getElementById('periodoMes').value, 10);
+      const anio = parseInt(document.getElementById('periodoAnioMes').value, 10);
+      desde = `${anio}-${String(mes).padStart(2, '0')}-01`;
+      hasta = `${anio}-${String(mes).padStart(2, '0')}-${String(ultimoDiaDelMes(anio, mes)).padStart(2, '0')}`;
+      titulo = `${MESES[mes - 1]} ${anio}`;
+    } else if (tipo === 'anio') {
+      const anio = parseInt(document.getElementById('periodoAnio').value, 10);
+      desde = `${anio}-01-01`;
+      hasta = `${anio}-12-31`;
+      titulo = `Año ${anio}`;
+    } else {
+      desde = document.getElementById('periodoDesde').value;
+      hasta = document.getElementById('periodoHasta').value;
+      if (!desde || !hasta) {
+        showToast('Selecciona la fecha de inicio y fin del rango.', 'error');
+        return;
+      }
+      titulo = `${formatFechaLocal(desde)} al ${formatFechaLocal(hasta)}`;
+    }
+
+    const tipoSolicitud = document.getElementById('periodoFiltroTipo').value;
+    const estado = document.getElementById('periodoFiltroEstado').value;
+
+    let url = `${API_BASE}/informes/periodo-pdf?desde=${desde}&hasta=${hasta}&titulo=${encodeURIComponent(titulo)}`;
+    if (tipoSolicitud) url += `&tipoSolicitud=${encodeURIComponent(tipoSolicitud)}`;
+    if (estado) url += `&estado=${encodeURIComponent(estado)}`;
+
+    window.open(url, '_blank');
+  }
+
+  async function buscarParaDescarga(termino) {
+    const contenedor = document.getElementById('descargasResultados');
+    if (!termino) {
+      contenedor.innerHTML = '';
+      return;
+    }
+    contenedor.innerHTML = '<div class="text-muted" style="font-size:.82rem;"><div class="loading-spinner"></div> Buscando...</div>';
+    try {
+      const res = await fetch(`${API_BASE}?page=1&limit=8&search=${encodeURIComponent(termino)}`);
+      const { data } = await res.json();
+      if (data.length === 0) {
+        contenedor.innerHTML = '<div class="text-muted" style="font-size:.82rem;">Sin resultados.</div>';
+        return;
+      }
+      contenedor.innerHTML = data.map(r => `
+        <div class="upcoming-item">
+          <div class="upcoming-info">
+            <div class="radicado mono">${r.radicado}</div>
+            <div class="asunto">${r.remitente} — ${r.asunto}</div>
+          </div>
+          <a class="btn btn-outline-secondary btn-sm" href="${API_BASE}/${r.id}/informe-pdf" target="_blank"><i class="fas fa-file-pdf"></i></a>
+        </div>
+      `).join('');
+    } catch (err) {
+      console.error(err);
+      contenedor.innerHTML = '<div class="text-muted" style="font-size:.82rem;">No se pudo buscar.</div>';
     }
   }
 

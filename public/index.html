@@ -398,6 +398,7 @@
         <button class="nav-item" data-section="seguimiento"><i class="fas fa-list-check"></i>Seguimiento<span class="badge-count" id="navSeguimientoCount">–</span></button>
         <button class="nav-item" data-section="documentos"><i class="fas fa-paperclip"></i>Documentos</button>
         <div class="nav-section-label">Administración</div>
+        <button class="nav-item" data-section="descargas"><i class="fas fa-file-arrow-down"></i>Descargas</button>
         <button class="nav-item" data-section="perfil"><i class="fas fa-user-gear"></i>Perfil y correo</button>
       </nav>
       <div class="sidebar-footer">
@@ -659,6 +660,100 @@
           </div>
 
           <div class="doc-grid" id="docGrid"></div>
+        </section>
+
+        <!-- ===== DESCARGAS ===== -->
+        <section id="section-descargas" class="view">
+          <div class="view-header">
+            <div>
+              <div class="eyebrow">Reportes</div>
+              <h1>Descargas</h1>
+              <p>Informes en PDF para soporte documental y control de cumplimiento</p>
+            </div>
+          </div>
+
+          <div class="dash-grid" style="grid-template-columns: 1fr 1fr;">
+
+            <!-- Informe de periodo -->
+            <div class="card form-card" style="max-width:none;">
+              <h3 class="mb-1" style="font-size:.92rem; font-weight:700;"><i class="fas fa-chart-column me-2" style="color:var(--primary);"></i>Informe de gestión por periodo</h3>
+              <p class="field-hint mb-3">Conteos por tipo de solicitud, cumplimiento de términos, y el detalle radicado por radicado — para reportes de control interno o PQRSD.</p>
+
+              <label for="periodoTipo">Periodo</label>
+              <select class="form-select mb-3" id="periodoTipo">
+                <option value="mes">Mes específico</option>
+                <option value="anio">Año completo</option>
+                <option value="rango">Rango de fechas personalizado</option>
+              </select>
+
+              <div id="periodoMesWrap" class="form-grid mb-3">
+                <div>
+                  <label for="periodoMes">Mes</label>
+                  <select class="form-select" id="periodoMes"></select>
+                </div>
+                <div>
+                  <label for="periodoAnioMes">Año</label>
+                  <select class="form-select" id="periodoAnioMes"></select>
+                </div>
+              </div>
+
+              <div id="periodoAnioWrap" class="mb-3" style="display:none;">
+                <label for="periodoAnio">Año</label>
+                <select class="form-select" id="periodoAnio"></select>
+              </div>
+
+              <div id="periodoRangoWrap" class="form-grid mb-3" style="display:none;">
+                <div>
+                  <label for="periodoDesde">Desde</label>
+                  <input type="date" class="form-control" id="periodoDesde">
+                </div>
+                <div>
+                  <label for="periodoHasta">Hasta</label>
+                  <input type="date" class="form-control" id="periodoHasta">
+                </div>
+              </div>
+
+              <div class="form-grid mb-3">
+                <div>
+                  <label for="periodoFiltroTipo">Tipo de solicitud (opcional)</label>
+                  <select class="form-select" id="periodoFiltroTipo">
+                    <option value="">Todos los tipos</option>
+                    <option value="Derecho de Petición">Derecho de Petición</option>
+                    <option value="Queja">Queja</option>
+                    <option value="Reclamo">Reclamo</option>
+                    <option value="Sugerencia">Sugerencia</option>
+                    <option value="Invitación">Invitación</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="periodoFiltroEstado">Estado (opcional)</label>
+                  <select class="form-select" id="periodoFiltroEstado">
+                    <option value="">Todos los estados</option>
+                    <option value="Recibido">Recibido</option>
+                    <option value="En Proceso">En Proceso</option>
+                    <option value="Respondido">Respondido</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-actions" style="border-top:none; padding-top:0;">
+                <button class="btn btn-primary" id="descargarInformePeriodoBtn"><i class="fas fa-file-pdf me-2"></i>Descargar informe PDF</button>
+              </div>
+            </div>
+
+            <!-- Informe individual -->
+            <div class="card form-card" style="max-width:none;">
+              <h3 class="mb-1" style="font-size:.92rem; font-weight:700;"><i class="fas fa-file-lines me-2" style="color:var(--primary);"></i>Informe individual</h3>
+              <p class="field-hint mb-3">Ficha completa de un radicado específico — para adjuntar como soporte a una solicitud o demanda.</p>
+
+              <label for="descargasBuscador">Buscar por radicado, remitente o asunto</label>
+              <input type="text" class="form-control mb-3" id="descargasBuscador" placeholder="Ej: RAD-2026-0142" />
+
+              <div id="descargasResultados"></div>
+            </div>
+
+          </div>
         </section>
 
         <!-- ===== PERFIL Y CORREO ===== -->
