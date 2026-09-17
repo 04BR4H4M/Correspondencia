@@ -10,6 +10,7 @@ import { join } from 'path';
 import { CorrespondenciaModule } from './correspondencia/correspondencia.module';
 import { ConfiguracionModule } from './configuracion/configuracion.module';
 import { AuthModule } from './auth/auth.module';
+import { SolicitudesGmailModule } from './correspondencia/solicitudes-gmail/solicitudes-gmail.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -62,6 +63,7 @@ import { AppService } from './app.service';
     CorrespondenciaModule,
     ConfiguracionModule,
     AuthModule,
+    SolicitudesGmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

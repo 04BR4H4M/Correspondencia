@@ -35,4 +35,17 @@ export class Configuracion {
 
   @Column({ type: 'varchar', length: 255, nullable: true, select: false })
   smtpPass: string | null; // select:false -> nunca se devuelve por defecto en consultas normales
+
+  // --- Conexión con Gmail (para leer la bandeja y sugerir radicados) ---
+  @Column({ type: 'boolean', default: false })
+  gmailConectado: boolean;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  gmailCorreoConectado: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true, select: false })
+  gmailRefreshToken: string | null; // select:false -> nunca se devuelve por defecto
+
+  @Column({ type: 'datetime', nullable: true })
+  gmailUltimoEscaneo: Date | null;
 }

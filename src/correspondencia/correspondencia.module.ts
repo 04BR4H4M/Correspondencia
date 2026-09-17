@@ -11,5 +11,6 @@ import { ConfiguracionModule } from '../configuracion/configuracion.module';
   imports: [TypeOrmModule.forFeature([Correspondencia]), ConfiguracionModule], // <--- ESTA LÍNEA ES LA CLAVE
   controllers: [CorrespondenciaController],
   providers: [CorrespondenciaService, GoogleDriveService],
+  exports: [CorrespondenciaService],
 })
 export class CorrespondenciaModule {}

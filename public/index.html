@@ -397,6 +397,8 @@
         <button class="nav-item" data-section="radicacion"><i class="fas fa-file-circle-plus"></i>Radicación</button>
         <button class="nav-item" data-section="seguimiento"><i class="fas fa-list-check"></i>Seguimiento<span class="badge-count" id="navSeguimientoCount">–</span></button>
         <button class="nav-item" data-section="documentos"><i class="fas fa-paperclip"></i>Documentos</button>
+        <div class="nav-section-label">Automatización</div>
+        <button class="nav-item" data-section="solicitudes-gmail"><i class="fas fa-inbox"></i>Solicitudes Gmail<span class="badge-count d-none" id="navGmailBadge">0</span></button>
         <div class="nav-section-label">Administración</div>
         <button class="nav-item" data-section="descargas"><i class="fas fa-file-arrow-down"></i>Descargas</button>
         <button class="nav-item" data-section="perfil"><i class="fas fa-user-gear"></i>Perfil y correo</button>
@@ -756,6 +758,26 @@
           </div>
         </section>
 
+        <!-- ===== SOLICITUDES GMAIL ===== -->
+        <section id="section-solicitudes-gmail" class="view">
+          <div class="view-header">
+            <div>
+              <div class="eyebrow">Automatización</div>
+              <h1>Solicitudes detectadas en Gmail</h1>
+              <p>Correos que parecen ser PQRSD — revisa y confirma antes de convertirlos en radicado</p>
+            </div>
+            <button class="btn btn-outline-secondary" id="escanearGmailBtn"><i class="fas fa-arrows-rotate me-2"></i>Escanear ahora</button>
+          </div>
+
+          <div id="gmailNoConectado" class="card" style="padding:2rem; text-align:center; display:none;">
+            <i class="fas fa-envelope-circle-check" style="font-size:2rem; color:var(--text-muted); margin-bottom:.8rem;"></i>
+            <p class="mb-3" style="color:var(--text-muted);">Aún no has conectado la cuenta de Gmail del Concejo.</p>
+            <a href="/gmail/conectar" class="btn btn-primary" style="display:inline-flex; width:auto;"><i class="fas fa-plug me-2"></i>Conectar Gmail ahora</a>
+          </div>
+
+          <div id="gmailSolicitudesGrid" class="doc-grid"></div>
+        </section>
+
         <!-- ===== PERFIL Y CORREO ===== -->
         <section id="section-perfil" class="view">
           <div class="view-header">
@@ -834,6 +856,25 @@
               </div>
             </div>
           </div>
+
+          <div class="card form-card mt-3" style="max-width:none;">
+            <h3 class="mb-1" style="font-size:.92rem; font-weight:700;">Conexión con Gmail (para detectar solicitudes)</h3>
+            <p class="field-hint mb-3">Permite que el sistema lea la bandeja de entrada del Concejo y sugiera radicados a partir de correos que parezcan PQRSD.</p>
+
+            <div id="gmailEstadoConectado" style="display:none;">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="urgency-dot bg-urgency-ok"></span>
+                <strong id="gmailCorreoTexto" style="font-size:.88rem;"></strong>
+              </div>
+              <div class="field-hint mb-3" id="gmailUltimoEscaneoTexto">Sin escaneos todavía.</div>
+              <button class="btn btn-outline-secondary btn-sm" id="desconectarGmailBtn"><i class="fas fa-plug-circle-xmark me-2"></i>Desconectar Gmail</button>
+            </div>
+
+            <div id="gmailEstadoDesconectado" style="display:none;">
+              <p class="field-hint mb-3">No hay ninguna cuenta conectada todavía.</p>
+              <a href="/gmail/conectar" class="btn btn-primary btn-sm" style="display:inline-flex; width:auto;"><i class="fas fa-plug me-2"></i>Conectar Gmail</a>
+            </div>
+          </div>
         </section>
 
       </main>
@@ -896,6 +937,29 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-primary" form="adjuntarForm"><i class="fas fa-upload me-2"></i>Subir Archivo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ver correo completo (Gmail) -->
+  <div class="modal fade" id="gmailPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5"><i class="fas fa-envelope-open-text me-2"></i>Correo completo</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-1"><strong>De:</strong> <span id="gmailPreviewRemitente"></span></p>
+          <p class="mb-1"><strong>Correo:</strong> <span id="gmailPreviewCorreo"></span></p>
+          <p class="mb-1"><strong>Fecha:</strong> <span id="gmailPreviewFecha"></span></p>
+          <p class="mb-3"><strong>Asunto:</strong> <span id="gmailPreviewAsunto"></span></p>
+          <hr>
+          <div id="gmailPreviewCuerpo" style="white-space:pre-wrap; font-size:.88rem; max-height:50vh; overflow-y:auto;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
         </div>
       </div>
     </div>

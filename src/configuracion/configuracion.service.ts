@@ -127,4 +127,47 @@ export class ConfiguracionService {
     const correo = config.smtpUser || this.configService.get<string>('EMAIL_USER');
     return `"${nombre}" <${correo}>`;
   }
+
+  // --- Conexión con Gmail ---
+
+  async guardarConexionGmail(correo: string, refreshToken: string) {
+    const config = await this.getOrCreate();
+    config.gmailConectado = true;
+    config.gmailCorreoConectado = correo;
+    config.gmailRefreshToken = refreshToken;
+    await this.configRepository.save(config);
+  }
+
+  async desconectarGmail() {
+    const config = await this.getOrCreate();
+    config.gmailConectado = false;
+    config.gmailCorreoConectado = null;
+    config.gmailRefreshToken = null;
+    config.gmailUltimoEscaneo = null;
+    await this.configRepository.save(config);
+  }
+
+  async obtenerRefreshTokenGmail(): Promise<string | null> {
+    const conToken = await this.configRepository
+      .createQueryBuilder('c')
+      .addSelect('c.gmailRefreshToken')
+      .where('c.id = :id', { id: ID_UNICO })
+      .getOne();
+    return conToken?.gmailRefreshToken || null;
+  }
+
+  async registrarEscaneoGmail() {
+    const config = await this.getOrCreate();
+    config.gmailUltimoEscaneo = new Date();
+    await this.configRepository.save(config);
+  }
+
+  async obtenerEstadoGmail() {
+    const config = await this.getOrCreate();
+    return {
+      conectado: config.gmailConectado,
+      correo: config.gmailCorreoConectado,
+      ultimoEscaneo: config.gmailUltimoEscaneo,
+    };
+  }
 }

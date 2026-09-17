@@ -82,7 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
     sidebar.classList.remove('open');
 
     if (section === 'dashboard') cargarDashboard();
-    if (section === 'perfil') cargarPerfil();
+    if (section === 'perfil') { cargarPerfil(); cargarEstadoGmailPerfil(); }
+    if (section === 'solicitudes-gmail') cargarSolicitudesGmail();
     if (section === 'descargas') inicializarDescargas();
     cargarNotificaciones();
     if (section === 'seguimiento') cargarCorrespondencia(1);
@@ -1153,6 +1154,8 @@ document.addEventListener('DOMContentLoaded', () => {
       cargarDashboard();
       cargarNotificaciones();
       restaurarDraftSiExiste();
+      cargarEstadoGmailBadge();
+      mostrarMensajesGmailUrl();
       fetch(CONFIG_BASE).then(r => r.json()).then(aplicarAvatarGlobal).catch(() => {});
       if (!localStorage.getItem(TUTORIAL_KEY)) {
         setTimeout(abrirTutorial, 500);
@@ -1269,6 +1272,213 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.error(err);
       contenedor.innerHTML = '<div class="text-muted" style="font-size:.82rem;">No se pudo buscar.</div>';
+    }
+  }
+
+  // ==========================================================
+  // SOLICITUDES GMAIL
+  // ==========================================================
+  const GMAIL_BASE = '/gmail';
+  let solicitudesGmailCache = [];
+  const gmailPreviewModalElement = document.getElementById('gmailPreviewModal');
+  const gmailPreviewModal = new bootstrap.Modal(gmailPreviewModalElement);
+
+  async function cargarEstadoGmailBadge() {
+    try {
+      const res = await fetch(`${GMAIL_BASE}/estado`);
+      if (!res.ok) return;
+      const estado = await res.json();
+      const badge = document.getElementById('navGmailBadge');
+      if (estado.pendientes > 0) {
+        badge.textContent = estado.pendientes > 9 ? '9+' : estado.pendientes;
+        badge.classList.remove('d-none');
+      } else {
+        badge.classList.add('d-none');
+      }
+      return estado;
+    } catch {
+      return null;
+    }
+  }
+
+  async function cargarEstadoGmailPerfil() {
+    const estado = await cargarEstadoGmailBadge();
+    if (!estado) return;
+
+    document.getElementById('gmailEstadoConectado').style.display = estado.conectado ? 'block' : 'none';
+    document.getElementById('gmailEstadoDesconectado').style.display = estado.conectado ? 'none' : 'block';
+
+    if (estado.conectado) {
+      document.getElementById('gmailCorreoTexto').textContent = estado.correo;
+      document.getElementById('gmailUltimoEscaneoTexto').textContent = estado.ultimoEscaneo
+        ? `Último escaneo: ${new Date(estado.ultimoEscaneo).toLocaleString('es-CO')}`
+        : 'Aún no se ha ejecutado ningún escaneo.';
+    }
+  }
+
+  document.getElementById('desconectarGmailBtn').addEventListener('click', async () => {
+    if (!confirm('¿Desconectar la cuenta de Gmail? Dejarán de detectarse solicitudes nuevas.')) return;
+    try {
+      await fetch(`${GMAIL_BASE}/desconectar`, { method: 'POST' });
+      showToast('Gmail desconectado', 'success');
+      cargarEstadoGmailPerfil();
+    } catch (err) {
+      console.error(err);
+      showToast('No se pudo desconectar Gmail.', 'error');
+    }
+  });
+
+  document.getElementById('escanearGmailBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('escanearGmailBtn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<div class="loading-spinner"></div> Escaneando...';
+    btn.disabled = true;
+    try {
+      const res = await fetch(`${GMAIL_BASE}/escanear`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'No se pudo escanear la bandeja.');
+      }
+      const resultado = await res.json();
+      showToast(`Escaneo completo: ${resultado.nuevas} solicitud(es) nueva(s) encontrada(s).`, 'success');
+      cargarSolicitudesGmail();
+    } catch (err) {
+      console.error(err);
+      showToast(Array.isArray(err.message) ? err.message.join(' ') : err.message, 'error');
+    } finally {
+      btn.innerHTML = original;
+      btn.disabled = false;
+    }
+  });
+
+  async function cargarSolicitudesGmail() {
+    const grid = document.getElementById('gmailSolicitudesGrid');
+    const noConectado = document.getElementById('gmailNoConectado');
+
+    const estado = await cargarEstadoGmailBadge();
+    if (!estado || !estado.conectado) {
+      noConectado.style.display = 'block';
+      grid.innerHTML = '';
+      return;
+    }
+    noConectado.style.display = 'none';
+
+    grid.innerHTML = '<div class="empty-state"><div class="loading-spinner"></div><div class="mt-2">Cargando solicitudes...</div></div>';
+
+    try {
+      const res = await fetch(`${GMAIL_BASE}/solicitudes?estado=Pendiente`);
+      const solicitudes = await res.json();
+      solicitudesGmailCache = solicitudes;
+
+      if (solicitudes.length === 0) {
+        grid.innerHTML = `<div class="empty-state"><i class="fas fa-circle-check"></i>No hay solicitudes pendientes por revisar.</div>`;
+        return;
+      }
+
+      grid.innerHTML = solicitudes.map(s => `
+        <div class="card doc-card" data-id="${s.id}">
+          <div class="doc-radicado">${s.correoRemitente || 'Sin correo'} · ${s.fechaCorreo ? new Date(s.fechaCorreo).toLocaleDateString('es-CO') : ''}</div>
+          <div class="doc-asunto">${s.asunto || '(sin asunto)'}</div>
+          <div class="doc-meta"><i class="fas fa-user me-1"></i>${s.remitente || 'Remitente desconocido'}</div>
+          <div class="doc-meta text-truncate-custom">${(s.cuerpo || '').slice(0, 140)}${(s.cuerpo || '').length > 140 ? '…' : ''}</div>
+          <div class="mt-1">
+            <label class="field-hint mb-1" style="display:block;">Tipo sugerido</label>
+            <select class="form-select form-select-sm gmail-tipo-select" data-id="${s.id}">
+              <option value="Derecho de Petición" ${s.tipoSugerido === 'Derecho de Petición' ? 'selected' : ''}>Derecho de Petición</option>
+              <option value="Queja" ${s.tipoSugerido === 'Queja' ? 'selected' : ''}>Queja</option>
+              <option value="Reclamo" ${s.tipoSugerido === 'Reclamo' ? 'selected' : ''}>Reclamo</option>
+              <option value="Sugerencia" ${s.tipoSugerido === 'Sugerencia' ? 'selected' : ''}>Sugerencia</option>
+              <option value="Invitación" ${s.tipoSugerido === 'Invitación' ? 'selected' : ''}>Invitación</option>
+              <option value="Otro" ${s.tipoSugerido === 'Otro' ? 'selected' : ''}>Otro</option>
+            </select>
+          </div>
+          <div class="doc-actions">
+            <button class="btn btn-outline-secondary btn-sm btn-gmail-ver" data-id="${s.id}"><i class="fas fa-eye me-1"></i>Ver completo</button>
+            <button class="btn btn-primary btn-sm btn-gmail-usar" data-id="${s.id}"><i class="fas fa-check me-1"></i>Usar esta solicitud</button>
+            <button class="btn btn-outline-danger btn-sm btn-gmail-descartar" data-id="${s.id}"><i class="fas fa-xmark me-1"></i>Descartar</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      console.error(err);
+      grid.innerHTML = `<div class="empty-state"><i class="fas fa-triangle-exclamation"></i>No se pudieron cargar las solicitudes.</div>`;
+    }
+  }
+
+  document.getElementById('gmailSolicitudesGrid').addEventListener('click', async (e) => {
+    const btnVer = e.target.closest('.btn-gmail-ver');
+    const btnUsar = e.target.closest('.btn-gmail-usar');
+    const btnDescartar = e.target.closest('.btn-gmail-descartar');
+
+    if (btnVer) {
+      const solicitud = solicitudesGmailCache.find(s => s.id === parseInt(btnVer.dataset.id, 10));
+      if (!solicitud) return;
+      document.getElementById('gmailPreviewRemitente').textContent = solicitud.remitente || 'Desconocido';
+      document.getElementById('gmailPreviewCorreo').textContent = solicitud.correoRemitente || 'Sin correo';
+      document.getElementById('gmailPreviewFecha').textContent = solicitud.fechaCorreo
+        ? new Date(solicitud.fechaCorreo).toLocaleString('es-CO')
+        : 'Sin fecha';
+      document.getElementById('gmailPreviewAsunto').textContent = solicitud.asunto || '(sin asunto)';
+      document.getElementById('gmailPreviewCuerpo').textContent = solicitud.cuerpo || 'Sin contenido disponible.';
+      gmailPreviewModal.show();
+      return;
+    }
+
+    if (btnUsar) {
+      const card = btnUsar.closest('.doc-card');
+      const id = btnUsar.dataset.id;
+      const tipoElegido = card.querySelector('.gmail-tipo-select').value;
+
+      try {
+        const solicitud = solicitudesGmailCache.find(s => s.id === parseInt(id, 10));
+        await fetch(`${GMAIL_BASE}/solicitudes/${id}/procesar`, { method: 'POST' });
+
+        resetRegistroForm();
+        if (solicitud) {
+          document.getElementById('remitente').value = solicitud.remitente || '';
+          document.getElementById('correoRemitente').value = solicitud.correoRemitente || '';
+          document.getElementById('asunto').value = solicitud.asunto || '';
+          document.getElementById('tipoSolicitud').value = tipoElegido;
+          document.getElementById('formaEnvio').value = 'correo';
+          document.getElementById('observaciones').value = `Detectado automáticamente desde Gmail.\n\n${solicitud.cuerpo || ''}`;
+          if (solicitud.fechaCorreo) {
+            // fechaCorreo llega como datetime ISO; el input date solo necesita la parte YYYY-MM-DD.
+            document.getElementById('fechaRecibido').value = solicitud.fechaCorreo.split('T')[0];
+          }
+        }
+        goToSection('radicacion');
+        showToast('Completa el número de radicado y guarda para confirmar.', 'info');
+        cargarEstadoGmailBadge();
+      } catch (err) {
+        console.error(err);
+        showToast('No se pudo procesar la solicitud.', 'error');
+      }
+      return;
+    }
+
+    if (btnDescartar) {
+      const id = btnDescartar.dataset.id;
+      if (!confirm('¿Descartar esta solicitud? No se volverá a mostrar.')) return;
+      try {
+        await fetch(`${GMAIL_BASE}/solicitudes/${id}/descartar`, { method: 'POST' });
+        cargarSolicitudesGmail();
+      } catch (err) {
+        console.error(err);
+        showToast('No se pudo descartar la solicitud.', 'error');
+      }
+    }
+  });
+
+  function mostrarMensajesGmailUrl() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gmail') === 'conectado') {
+      showToast('Gmail conectado con éxito', 'success');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    const error = params.get('gmail_error');
+    if (error) {
+      showToast(decodeURIComponent(error), 'error');
+      window.history.replaceState({}, '', window.location.pathname);
     }
   }
 
