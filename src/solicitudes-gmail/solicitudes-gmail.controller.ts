@@ -13,8 +13,8 @@ import {
 import { Request, Response } from 'express';
 import { SolicitudesGmailService } from './solicitudes-gmail.service';
 import { EstadoSugerida } from './entities/solicitud-sugerida.entity';
-import { SessionAuthGuard } from '../../auth/session-auth.guard';
-import { ConfiguracionService } from '../../configuracion/configuracion.service';
+import { SessionAuthGuard } from '../auth/session-auth.guard';
+import { ConfiguracionService } from '../configuracion/configuracion.service';
 
 @Controller('gmail')
 export class SolicitudesGmailController {
