@@ -166,12 +166,12 @@ removeMany(@Body() bulkDeleteDto: BulkDeleteDto) {
   }
 
   /**
-   * ✅ Descarga el informe de gestión/cumplimiento en PDF para un periodo
-   * GET /correspondencia/informes/periodo-pdf?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&titulo=...
+   * ✅ Descarga el informe de gestión/cumplimiento en Excel para un periodo
+   * GET /correspondencia/informes/periodo-excel?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&titulo=...
    */
-  @Get('informes/periodo-pdf')
-  @Header('Content-Type', 'application/pdf')
-  async descargarInformePeriodoPdf(
+  @Get('informes/periodo-excel')
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async descargarInformePeriodoExcel(
     @Query('desde') desde: string,
     @Query('hasta') hasta: string,
     @Query('titulo') titulo: string,
@@ -182,7 +182,7 @@ removeMany(@Body() bulkDeleteDto: BulkDeleteDto) {
       throw new BadRequestException('Debes indicar la fecha de inicio y fin del periodo.');
     }
 
-    const buffer = await this.correspondenciaService.generarInformePeriodoPdf(
+    const buffer = await this.correspondenciaService.generarInformePeriodoExcel(
       desde,
       hasta,
       titulo || `${desde} a ${hasta}`,
@@ -191,7 +191,7 @@ removeMany(@Body() bulkDeleteDto: BulkDeleteDto) {
     );
 
     return new StreamableFile(buffer, {
-      disposition: `attachment; filename="informe-gestion-${desde}_a_${hasta}.pdf"`,
+      disposition: `attachment; filename="informe-gestion-${desde}_a_${hasta}.xlsx"`,
     });
   }
 }

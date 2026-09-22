@@ -384,40 +384,392 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
   private colores = {
     texto: '#0f172a',
     muted: '#64748b',
-    primario: '#2563eb',
+    primario: '#1B4B8C',
+    primarioOscuro: '#12335F',
     borde: '#e2e8f0',
-    exito: '#059669',
-    advertencia: '#d97706',
-    peligro: '#dc2626',
+    fondoSuave: '#f8fafc',
+    exito: '#16A34A',
+    exitoFondo: '#E7F7ED',
+    exitoTexto: '#15803d',
+    advertencia: '#F5A623',
+    advertenciaFondo: '#FEF6E4',
+    advertenciaTexto: '#B45309',
+    peligro: '#EF4444',
+    peligroFondo: '#FDECEC',
+    peligroTexto: '#B91C1C',
+    info: '#2563EB',
+    infoFondo: '#EAF2FD',
+    grisFondo: '#F1F5F9',
+    grisTexto: '#64748b',
   };
 
-  private dibujarEncabezadoPdf(doc: PDFKit.PDFDocument, eyebrow: string, titulo: string, subtitulo?: string) {
+  /** Convierte un color hex '#rrggbb' a su componente RGB, para poder oscurecer/aclarar. */
+  private hexARgb(hex: string): [number, number, number] {
+    const limpio = hex.replace('#', '');
+    return [
+      parseInt(limpio.substring(0, 2), 16),
+      parseInt(limpio.substring(2, 4), 16),
+      parseInt(limpio.substring(4, 6), 16),
+    ];
+  }
+
+  /** Dibuja una "pastilla" (badge) de estado con fondo claro y texto de color, centrada verticalmente en (x, y). */
+  private dibujarPildora(
+    doc: PDFKit.PDFDocument,
+    texto: string,
+    x: number,
+    y: number,
+    colorFondo: string,
+    colorTexto: string,
+    anchoMin = 0,
+  ) {
+    doc.fontSize(8).font('Helvetica-Bold');
+    const anchoTexto = doc.widthOfString(texto);
+    const paddingH = 8;
+    const ancho = Math.max(anchoTexto + paddingH * 2, anchoMin);
+    const alto = 16;
+
+    doc.roundedRect(x, y, ancho, alto, alto / 2).fill(colorFondo);
+    doc
+      .fillColor(colorTexto)
+      .fontSize(8)
+      .font('Helvetica-Bold')
+      .text(texto, x, y + 4.5, { width: ancho, align: 'center' });
+
+    return ancho;
+  }
+
+  /** Dibuja el escudo/placeholder institucional. Si en el futuro se cuenta con el PNG oficial, reemplazar por doc.image(). */
+  private dibujarLogoPdf(doc: PDFKit.PDFDocument, x: number, y: number, tamano: number) {
+    doc.save();
+    doc.roundedRect(x, y, tamano, tamano, 8).clip();
+    doc.rect(x, y, tamano, tamano / 2).fill('#F5C242');
+    doc.rect(x, y + tamano / 2, tamano, tamano / 2).fill('#2E7D46');
+    doc.restore();
+    doc
+      .roundedRect(x, y, tamano, tamano, 8)
+      .lineWidth(1.5)
+      .strokeColor(this.colores.primarioOscuro)
+      .stroke();
+    doc
+      .fillColor('#ffffff')
+      .font('Helvetica-Bold')
+      .fontSize(tamano * 0.24)
+      .text('NILO', x, y + tamano / 2 - tamano * 0.12, { width: tamano, align: 'center' });
+  }
+
+  /** Encabezado institucional: logo, títulos, fecha de generación, y banda de título del informe. */
+  private dibujarEncabezadoPdf(doc: PDFKit.PDFDocument, tituloInforme: string, subtituloInforme?: string) {
+    const fecha = this.formatearFechaPdf(new Date());
+    const margenX = 50;
+    const anchoContenido = 495;
+
+    this.dibujarLogoPdf(doc, margenX, 40, 62);
+
+    doc
+      .fillColor(this.colores.primario)
+      .font('Helvetica-Bold')
+      .fontSize(18)
+      .text('CONCEJO MUNICIPAL DE NILO', margenX + 78, 42, { width: 270 });
+
+    doc
+      .fillColor(this.colores.primario)
+      .font('Helvetica-Bold')
+      .fontSize(11)
+      .text('Cundinamarca', margenX + 78, 65, { width: 270 });
+
+    doc
+      .fillColor(this.colores.muted)
+      .font('Helvetica')
+      .fontSize(9.5)
+      .text('Sistema de Gestión de Correspondencia', margenX + 78, 83, { width: 270 });
+
+    doc
+      .strokeColor(this.colores.borde)
+      .lineWidth(1)
+      .moveTo(400, 48)
+      .lineTo(400, 95)
+      .stroke();
+
+    doc
+      .fillColor(this.colores.muted)
+      .font('Helvetica')
+      .fontSize(9)
+      .text(`Generado: ${fecha}`, 412, 68, { width: 133, align: 'right' });
+
+    // Banda de título
+    const bandaY = 112;
+    const bandaAlto = subtituloInforme ? 56 : 42;
+    doc.roundedRect(margenX, bandaY, anchoContenido, bandaAlto, 6).fill(this.colores.primario);
+
+    doc
+      .fillColor('#ffffff')
+      .font('Helvetica-Bold')
+      .fontSize(15)
+      .text(tituloInforme.toUpperCase(), margenX, bandaY + (subtituloInforme ? 12 : 13), {
+        width: anchoContenido,
+        align: 'center',
+      });
+
+    if (subtituloInforme) {
+      doc
+        .fillColor('#DCE6F5')
+        .font('Helvetica')
+        .fontSize(10)
+        .text(subtituloInforme, margenX, bandaY + 34, { width: anchoContenido, align: 'center' });
+    }
+
+    doc.x = margenX;
+    doc.y = bandaY + bandaAlto + 22;
+  }
+
+  /** Título de una sección principal del cuerpo del informe (p. ej. "Resumen ejecutivo"). */
+  private dibujarTituloSeccion(doc: PDFKit.PDFDocument, texto: string) {
+    doc.x = 50;
     doc
       .fillColor(this.colores.texto)
-      .fontSize(16)
       .font('Helvetica-Bold')
-      .text('Concejo Municipal de Nilo');
-    doc
-      .fillColor(this.colores.muted)
-      .fontSize(9)
-      .font('Helvetica')
-      .text('Sistema de Gestión de Correspondencia · Cundinamarca');
-
+      .fontSize(15)
+      .text(texto, 50, doc.y, { width: 495 });
+    doc.x = 50;
     doc.moveDown(0.6);
-    doc.strokeColor(this.colores.borde).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
-    doc.moveDown(1);
+  }
 
-    doc.fillColor(this.colores.primario).fontSize(9).font('Helvetica-Bold').text(eyebrow.toUpperCase());
-    doc.fillColor(this.colores.texto).fontSize(13).font('Helvetica-Bold').text(titulo);
-    if (subtitulo) {
-      doc.fillColor(this.colores.muted).fontSize(9).font('Helvetica').text(subtitulo);
+  /** Encabezado de sección secundaria con ícono simple + fondo suave (p. ej. "Detalle de radicados"). */
+  private dibujarEncabezadoSubseccion(doc: PDFKit.PDFDocument, texto: string) {
+    doc.x = 50;
+    const y = doc.y;
+    const alto = 34;
+    doc.roundedRect(50, y, 495, alto, 6).fill(this.colores.infoFondo);
+
+    // Ícono de documento simplificado
+    const iconX = 66;
+    const iconY = y + 9;
+    doc.roundedRect(iconX, iconY, 13, 16, 2).fill(this.colores.info);
+    doc.rect(iconX + 2.5, iconY + 4, 8, 1.2).fill('#ffffff');
+    doc.rect(iconX + 2.5, iconY + 7, 8, 1.2).fill('#ffffff');
+    doc.rect(iconX + 2.5, iconY + 10, 5, 1.2).fill('#ffffff');
+
+    doc
+      .fillColor(this.colores.primario)
+      .font('Helvetica-Bold')
+      .fontSize(13)
+      .text(texto, 90, y + 9, { width: 440 });
+
+    doc.x = 50;
+    doc.y = y + alto + 14;
+  }
+
+  /** Dibuja una tarjeta KPI con ícono circular de color, número grande, y etiqueta. */
+  private dibujarTarjetaKpi(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    ancho: number,
+    alto: number,
+    etiqueta: string,
+    valor: number,
+    colorFondo: string,
+    colorIcono: string,
+    tipoIcono: 'total' | 'check' | 'reloj' | 'x',
+  ) {
+    doc.roundedRect(x, y, ancho, alto, 8).fill(colorFondo);
+
+    const centroX = x + ancho / 2;
+    const iconoY = y + 16;
+    const radioIcono = 18;
+
+    doc.circle(centroX, iconoY + radioIcono, radioIcono).fill(colorIcono);
+
+    doc.save();
+    doc.strokeColor('#ffffff').lineWidth(2.4).lineCap('round').lineJoin('round');
+    const cx = centroX;
+    const cy = iconoY + radioIcono;
+
+    if (tipoIcono === 'total') {
+      doc.roundedRect(cx - 7, cy - 8, 14, 17, 2).stroke();
+      doc.moveTo(cx - 3.5, cy - 8).lineTo(cx - 3.5, cy - 10.5).lineTo(cx + 3.5, cy - 10.5).lineTo(cx + 3.5, cy - 8).stroke();
+      doc.moveTo(cx - 4, cy - 2).lineTo(cx + 4, cy - 2).stroke();
+      doc.moveTo(cx - 4, cy + 2).lineTo(cx + 4, cy + 2).stroke();
+    } else if (tipoIcono === 'check') {
+      doc.moveTo(cx - 7, cy).lineTo(cx - 2, cy + 6).lineTo(cx + 8, cy - 7).stroke();
+    } else if (tipoIcono === 'reloj') {
+      doc.circle(cx, cy, 9).stroke();
+      doc.moveTo(cx, cy).lineTo(cx, cy - 6).stroke();
+      doc.moveTo(cx, cy).lineTo(cx + 5, cy + 2).stroke();
+    } else if (tipoIcono === 'x') {
+      doc.moveTo(cx - 6, cy - 6).lineTo(cx + 6, cy + 6).stroke();
+      doc.moveTo(cx + 6, cy - 6).lineTo(cx - 6, cy + 6).stroke();
     }
+    doc.restore();
+
+    doc
+      .fillColor(colorIcono)
+      .font('Helvetica-Bold')
+      .fontSize(26)
+      .text(String(valor), x, iconoY + radioIcono * 2 + 8, { width: ancho, align: 'center' });
+
     doc
       .fillColor(this.colores.muted)
-      .fontSize(8)
-      .font('Helvetica')
-      .text(`Generado el ${this.formatearFechaPdf(new Date())}`);
-    doc.moveDown(1);
+      .font('Helvetica-Bold')
+      .fontSize(8.5)
+      .text(etiqueta.toUpperCase(), x, y + alto - 20, { width: ancho, align: 'center' });
+  }
+
+  /**
+   * Dibuja un gráfico de torta/dona simple a partir de una lista de segmentos {etiqueta, valor, color},
+   * junto con su leyenda, dentro de una tarjeta con borde.
+   */
+  private dibujarGraficoTorta(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    ancho: number,
+    alto: number,
+    titulo: string,
+    segmentos: { etiqueta: string; valor: number; color: string }[],
+  ) {
+    doc.roundedRect(x, y, ancho, alto, 8).lineWidth(1).strokeColor(this.colores.borde).stroke();
+
+    doc
+      .fillColor(this.colores.primario)
+      .font('Helvetica-Bold')
+      .fontSize(10)
+      .text(titulo.toUpperCase(), x + 16, y + 14, { width: ancho - 32 });
+
+    const total = segmentos.reduce((acc, s) => acc + s.valor, 0);
+    const radio = Math.min(alto - 70, 60) / 2 + 30;
+    const cx = x + 30 + radio;
+    const cy = y + alto / 2 + 8;
+
+    if (total === 0) {
+      doc.circle(cx, cy, radio).fill(this.colores.grisFondo);
+    } else {
+      let anguloInicial = -90;
+      for (const seg of segmentos) {
+        const anguloBarrido = (seg.valor / total) * 360;
+        if (anguloBarrido <= 0) continue;
+
+        if (anguloBarrido >= 359.9) {
+          doc.circle(cx, cy, radio).fill(seg.color);
+        } else {
+          doc.save();
+          doc.moveTo(cx, cy);
+          const pasos = Math.max(2, Math.ceil(anguloBarrido / 3));
+          for (let i = 0; i <= pasos; i++) {
+            const a = ((anguloInicial + (anguloBarrido * i) / pasos) * Math.PI) / 180;
+            doc.lineTo(cx + radio * Math.cos(a), cy + radio * Math.sin(a));
+          }
+          doc.closePath().fill(seg.color);
+          doc.restore();
+        }
+        anguloInicial += anguloBarrido;
+      }
+    }
+
+    // Círculo interior blanco → efecto dona + porcentaje del segmento mayor al centro
+    const radioInterior = radio * 0.55;
+    doc.circle(cx, cy, radioInterior).fill('#ffffff');
+    const mayor = segmentos.reduce((a, b) => (b.valor > a.valor ? b : a), { etiqueta: '', valor: 0, color: '' });
+    const pctMayor = total > 0 ? ((mayor.valor / total) * 100).toFixed(0) : '0';
+    doc
+      .fillColor(this.colores.texto)
+      .font('Helvetica-Bold')
+      .fontSize(radioInterior > 20 ? 15 : 11)
+      .text(`${pctMayor}%`, cx - radioInterior, cy - 7, { width: radioInterior * 2, align: 'center' });
+
+    // Leyenda a la derecha del círculo
+    const leyendaX = cx + radio + 24;
+    const leyendaAncho = x + ancho - 16 - leyendaX;
+    let leyendaY = y + alto / 2 - (segmentos.length * 30) / 2;
+
+    for (const seg of segmentos) {
+      const pct = total > 0 ? ((seg.valor / total) * 100).toFixed(1) : '0.0';
+      doc.circle(leyendaX + 5, leyendaY + 6, 5).fill(seg.color);
+      doc
+        .fillColor(this.colores.texto)
+        .font('Helvetica-Bold')
+        .fontSize(9.5)
+        .text(`${seg.etiqueta}:`, leyendaX + 16, leyendaY, { width: leyendaAncho - 16 });
+      doc
+        .fillColor(this.colores.muted)
+        .font('Helvetica')
+        .fontSize(9)
+        .text(`${seg.valor} radicados (${pct}%)`, leyendaX + 16, leyendaY + 13, { width: leyendaAncho - 16 });
+      leyendaY += 32;
+    }
+
+    doc.x = 50;
+    doc.y = y + alto + 20;
+  }
+
+  /** Dibuja la tarjeta "Cumplimiento de términos": lista de filas con una pastilla de % + etiqueta + conteo. */
+  private dibujarTarjetaCumplimiento(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    ancho: number,
+    alto: number,
+    filas: { etiqueta: string; cantidad: number; color: string; colorTexto: string }[],
+    total: number,
+  ) {
+    doc.roundedRect(x, y, ancho, alto, 8).lineWidth(1).strokeColor(this.colores.borde).stroke();
+
+    doc
+      .fillColor(this.colores.primario)
+      .font('Helvetica-Bold')
+      .fontSize(10)
+      .text('CUMPLIMIENTO DE TÉRMINOS', x + 16, y + 14, { width: ancho - 32 });
+
+    let filaY = y + 40;
+    const altoFila = (alto - 48) / filas.length;
+
+    for (const fila of filas) {
+      const pct = total > 0 ? ((fila.cantidad / total) * 100).toFixed(1) : '0.0';
+      this.dibujarPildora(doc, `${pct}%`, x + 16, filaY, fila.color, fila.colorTexto, 52);
+
+      doc
+        .fillColor(this.colores.texto)
+        .font('Helvetica')
+        .fontSize(9.5)
+        .text(fila.etiqueta + ':', x + 80, filaY + 4, { width: ancho - 160, continued: true })
+        .font('Helvetica-Bold')
+        .text(` ${fila.cantidad}`);
+
+      filaY += altoFila;
+    }
+
+    doc.x = 50;
+    doc.y = y + alto + 20;
+  }
+
+  /** Pie de página institucional (banda navy con nombre del sistema y "Página X de Y"), dibujado sobre todas las páginas al final. */
+  private dibujarPiesDePagina(doc: PDFKit.PDFDocument) {
+    const rango = doc.bufferedPageRange();
+    for (let i = rango.start; i < rango.start + rango.count; i++) {
+      doc.switchToPage(i);
+      const alto = 32;
+      const y = doc.page.height - alto;
+
+      doc.rect(0, y, doc.page.width, alto).fill(this.colores.primario);
+
+      doc
+        .fillColor('#ffffff')
+        .font('Helvetica')
+        .fontSize(8.5)
+        .text('Concejo Municipal de Nilo - Sistema de Gestión de Correspondencia', 20, y + 11, {
+          width: 350,
+        });
+
+      doc
+        .fillColor('#ffffff')
+        .font('Helvetica-Bold')
+        .fontSize(8.5)
+        .text(`Página ${i - rango.start + 1} de ${rango.count}`, doc.page.width - 170, y + 11, {
+          width: 150,
+          align: 'right',
+        });
+    }
   }
 
   /**
@@ -429,7 +781,7 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
     const { texto: colorTexto, muted: colorMuted, borde: colorBorde } = this.colores;
 
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
       const chunks: Buffer[] = [];
 
       doc.on('data', (chunk) => chunks.push(chunk));
@@ -441,14 +793,18 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       const campo = (etiqueta: string, valor: string) => {
         const y = doc.y;
         doc.fillColor(colorMuted).fontSize(9).font('Helvetica-Bold').text(etiqueta.toUpperCase(), 50, y, { width: 160 });
+        const alturaValor = doc.heightOfString(valor || 'No registrado', { width: 325 });
         doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(valor || 'No registrado', 220, y, { width: 325 });
-        doc.moveDown(0.55);
+        doc.x = 50;
+        doc.y = y + Math.max(alturaValor, 12) + 6;
       };
 
       const seccion = (titulo: string) => {
+        doc.x = 50;
         doc.moveDown(0.3);
-        doc.fillColor(colorTexto).fontSize(11).font('Helvetica-Bold').text(titulo);
+        doc.fillColor(colorTexto).fontSize(11).font('Helvetica-Bold').text(titulo, 50, doc.y);
         doc.strokeColor(colorBorde).lineWidth(0.7).moveTo(50, doc.y + 2).lineTo(545, doc.y + 2).stroke();
+        doc.x = 50;
         doc.moveDown(0.6);
       };
 
@@ -462,11 +818,11 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       campo('Forma de envío', registro.formaEnvio || 'No registrado');
 
       seccion('Asunto');
-      doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(registro.asunto || 'No registrado', { width: 495 });
+      doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(registro.asunto || 'No registrado', 50, doc.y, { width: 495 });
 
       if (registro.observaciones) {
         seccion('Observaciones');
-        doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(registro.observaciones, { width: 495 });
+        doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(registro.observaciones, 50, doc.y, { width: 495 });
       }
 
       seccion('Trazabilidad');
@@ -477,9 +833,12 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       if (registro.respuestaMensaje) {
         seccion('Respuesta enviada desde el aplicativo');
         campo('Enviada el', this.formatearFechaPdf(registro.respuestaEnviadaEn));
-        doc.fillColor(colorMuted).fontSize(9).font('Helvetica-Bold').text('MENSAJE ENVIADO');
+        doc.x = 50;
+        doc.fillColor(colorMuted).fontSize(9).font('Helvetica-Bold').text('MENSAJE ENVIADO', 50, doc.y);
+        doc.x = 50;
         doc.moveDown(0.2);
-        doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(registro.respuestaMensaje, { width: 495 });
+        doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(registro.respuestaMensaje, 50, doc.y, { width: 495 });
+        doc.x = 50;
         doc.moveDown(0.4);
         if (registro.archivoRespuesta) {
           campo('Archivo de respuesta', registro.archivoRespuesta);
@@ -489,19 +848,7 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       seccion('Archivo adjunto original');
       campo('Enlace', registro.archivosAnexos || 'Sin archivo adjunto');
 
-      doc.moveDown(2);
-      doc.strokeColor(colorBorde).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
-      doc.moveDown(0.5);
-      doc
-        .fillColor(colorMuted)
-        .fontSize(8)
-        .font('Helvetica')
-        .text(
-          'Documento generado automáticamente por el Sistema de Gestión de Correspondencia. ' +
-          'Este informe refleja el estado del radicado al momento de su generación.',
-          { width: 495 },
-        );
-
+      this.dibujarPiesDePagina(doc);
       doc.end();
     });
   }
@@ -519,9 +866,9 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
 
   /**
    * Genera un informe de gestión/cumplimiento en PDF para un periodo (mes, año o rango),
-   * con conteos por tipo, cumplimiento de términos, y el detalle radicado por radicado.
+   * con tarjetas KPI, gráfico de distribución por tipo, semáforo de cumplimiento y detalle radicado por radicado.
    */
-  async generarInformePeriodoPdf(
+  async generarInformePeriodoExcel(
     desde: string,
     hasta: string,
     tituloPeriodo: string,
@@ -540,7 +887,7 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
     const { texto: colorTexto, muted: colorMuted, borde: colorBorde, exito, advertencia, peligro } = this.colores;
 
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
       const chunks: Buffer[] = [];
 
       doc.on('data', (chunk) => chunks.push(chunk));
@@ -554,8 +901,7 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       this.dibujarEncabezadoPdf(
         doc,
         'Informe de gestión y cumplimiento',
-        tituloPeriodo,
-        filtrosTexto.length ? `Filtros aplicados — ${filtrosTexto.join(' · ')}` : undefined,
+        [tituloPeriodo, ...filtrosTexto].join(' · '),
       );
 
       // --- Conteos ---
@@ -572,117 +918,185 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
         else sinTermino++;
       }
 
-      const seccion = (titulo: string) => {
-        doc.moveDown(0.4);
-        doc.fillColor(colorTexto).fontSize(11).font('Helvetica-Bold').text(titulo);
-        doc.strokeColor(colorBorde).lineWidth(0.7).moveTo(50, doc.y + 2).lineTo(545, doc.y + 2).stroke();
-        doc.moveDown(0.6);
+      this.dibujarTituloSeccion(doc, 'Resumen ejecutivo');
+
+      // --- Tarjetas KPI ---
+      const cardWidth = 110;
+      const cardHeight = 100;
+      const gap = 12;
+      const startX = 50;
+      const startY = doc.y;
+
+      const tarjetas: {
+        titulo: string;
+        valor: number;
+        colorFondo: string;
+        colorIcono: string;
+        icono: 'total' | 'check' | 'reloj' | 'x';
+      }[] = [
+        { titulo: 'Total', valor: registros.length, colorFondo: this.colores.infoFondo, colorIcono: this.colores.info, icono: 'total' },
+        { titulo: 'A tiempo', valor: aTiempo, colorFondo: this.colores.exitoFondo, colorIcono: this.colores.exito, icono: 'check' },
+        { titulo: 'En trámite', valor: enTermino, colorFondo: this.colores.advertenciaFondo, colorIcono: this.colores.advertencia, icono: 'reloj' },
+        { titulo: 'Vencidos', valor: vencidos, colorFondo: this.colores.peligroFondo, colorIcono: this.colores.peligro, icono: 'x' },
+      ];
+
+      tarjetas.forEach((card, index) => {
+        const x = startX + index * (cardWidth + gap);
+        this.dibujarTarjetaKpi(doc, x, startY, cardWidth, cardHeight, card.titulo, card.valor, card.colorFondo, card.colorIcono, card.icono);
+      });
+
+      doc.x = startX;
+      doc.y = startY + cardHeight + 22;
+
+      // --- Resumen automático (bullets) ---
+      const porcentajeTiempo = registros.length > 0 ? ((aTiempo / registros.length) * 100).toFixed(1) : '0';
+
+      const bullet = (texto: string, colorResaltado?: string) => {
+        doc.x = 50;
+        const y = doc.y;
+        doc.fillColor(this.colores.texto).font('Helvetica-Bold').fontSize(10).text('•', 50, y, { width: 12 });
+        doc.fillColor(colorResaltado || this.colores.texto).font('Helvetica').fontSize(9.5).text(texto, 64, y, { width: 481 });
+        doc.x = 50;
+        doc.moveDown(0.5);
       };
 
-      seccion('Resumen general');
-      doc.fillColor(colorTexto).fontSize(10).font('Helvetica-Bold').text(`Total de radicados en el periodo: ${registros.length}`);
-      doc.moveDown(0.5);
-
-      doc.fillColor(colorMuted).fontSize(9).font('Helvetica-Bold').text('POR TIPO DE SOLICITUD');
-      doc.moveDown(0.2);
-      if (porTipo.size === 0) {
-        doc.fillColor(colorMuted).fontSize(10).font('Helvetica').text('No se encontraron radicados en este periodo.');
-      }
-      for (const [tipo, cantidad] of porTipo.entries()) {
-        doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(`${tipo}: ${cantidad}`);
+      bullet(`Durante el periodo evaluado se registraron ${registros.length} solicitudes de correspondencia.`);
+      bullet(`${aTiempo} solicitudes fueron atendidas dentro de los términos legales (${porcentajeTiempo}%).`);
+      if (vencidos > 0) {
+        doc.fillColor(this.colores.peligroTexto).font('Helvetica-Bold').fontSize(9.5);
+        bullet(`Se identificaron ${vencidos} solicitudes vencidas pendientes de respuesta.`, this.colores.peligroTexto);
       }
 
-      doc.moveDown(0.6);
-      doc.fillColor(colorMuted).fontSize(9).font('Helvetica-Bold').text('CUMPLIMIENTO DE TÉRMINOS');
-      doc.moveDown(0.2);
-      doc.fillColor(exito).fontSize(10).font('Helvetica-Bold').text(`Respondidos a tiempo: ${aTiempo}`);
-      doc.fillColor(advertencia).fontSize(10).font('Helvetica-Bold').text(`Respondidos fuera de término: ${fueraDeTermino}`);
-      doc.fillColor(peligro).fontSize(10).font('Helvetica-Bold').text(`Vencidos sin responder: ${vencidos}`);
-      doc.fillColor(colorTexto).fontSize(10).font('Helvetica').text(`En trámite, dentro del término: ${enTermino}`);
-      doc.fillColor(colorMuted).fontSize(10).font('Helvetica').text(`Sin término legal (sugerencias, invitaciones, etc.): ${sinTermino}`);
+      doc.x = 50;
+      doc.moveDown(0.4);
+
+      // --- Gráfico de torta + Cumplimiento (dos columnas) ---
+      const colAncho = (495 - 24) / 2;
+      const colY = doc.y;
+      const colAlto = 190;
+
+      const paletaTipos = ['#2563EB', '#8B5CF6', '#16A34A', '#F5A623', '#EF4444', '#0EA5E9', '#64748b'];
+      const segmentosTipo = [...porTipo.entries()].map(([etiqueta, valor], i) => ({
+        etiqueta,
+        valor,
+        color: paletaTipos[i % paletaTipos.length],
+      }));
+
+      this.dibujarGraficoTorta(doc, 50, colY, colAncho, colAlto, 'Distribución por tipo de solicitud', segmentosTipo);
+
+      this.dibujarTarjetaCumplimiento(
+        doc,
+        50 + colAncho + 24,
+        colY,
+        colAncho,
+        colAlto,
+        [
+          { etiqueta: 'Respondidos a tiempo', cantidad: aTiempo, color: this.colores.exito, colorTexto: '#ffffff' },
+          { etiqueta: 'Respondidos fuera de término', cantidad: fueraDeTermino, color: this.colores.peligro, colorTexto: '#ffffff' },
+          { etiqueta: 'Vencidos sin respuesta', cantidad: vencidos, color: this.colores.peligro, colorTexto: '#ffffff' },
+          { etiqueta: 'En trámite dentro del término', cantidad: enTermino, color: this.colores.advertencia, colorTexto: '#ffffff' },
+          { etiqueta: 'Sin término legal aplicable', cantidad: sinTermino, color: this.colores.grisTexto, colorTexto: '#ffffff' },
+        ],
+        registros.length,
+      );
+
+      doc.y = colY + colAlto + 20;
 
       // --- Detalle ---
       if (registros.length > 0) {
         doc.addPage();
-        seccion('Detalle de radicados');
+        this.dibujarEncabezadoSubseccion(doc, 'Detalle de radicados');
 
         const columnas = [
-          { titulo: 'Radicado', ancho: 65 },
-          { titulo: 'Tipo', ancho: 80 },
-          { titulo: 'Remitente', ancho: 100 },
-          { titulo: 'Recibido', ancho: 60 },
-          { titulo: 'Vencimiento', ancho: 65 },
-          { titulo: 'Estado', ancho: 60 },
-          { titulo: 'Cumple', ancho: 65 },
+          { titulo: 'Radicado', ancho: 60 },
+          { titulo: 'Tipo', ancho: 75 },
+          { titulo: 'Remitente', ancho: 95 },
+          { titulo: 'Recibido', ancho: 58 },
+          { titulo: 'Vencimiento', ancho: 62 },
+          { titulo: 'Estado', ancho: 72 },
+          { titulo: 'Cumple', ancho: 73 },
         ];
         const xInicial = 50;
-        const altoFila = 20;
+        const altoFila = 26;
 
         const truncar = (texto: string, maxCaracteres: number) =>
           texto && texto.length > maxCaracteres ? texto.slice(0, maxCaracteres - 1) + '…' : (texto || '');
 
         const dibujarCabeceraTabla = () => {
           let x = xInicial;
-          doc.fillColor('#f8fafc').rect(xInicial, doc.y, 495, altoFila).fill();
-          doc.fillColor(colorMuted).fontSize(7.5).font('Helvetica-Bold');
-          const y = doc.y + 6;
+          doc.roundedRect(xInicial, doc.y, 495, 24, 4).fill(this.colores.primario);
+          doc.fillColor('#ffffff').fontSize(7.5).font('Helvetica-Bold');
+          const y = doc.y + 8;
           for (const col of columnas) {
-            doc.text(col.titulo.toUpperCase(), x + 3, y, { width: col.ancho - 6 });
+            doc.text(col.titulo.toUpperCase(), x + 6, y, { width: col.ancho - 6 });
             x += col.ancho;
           }
-          doc.y += altoFila;
+          doc.x = xInicial;
+          doc.y += 24;
         };
 
         dibujarCabeceraTabla();
 
-        const colorCumplimiento = (c: string) =>
-          c === 'A tiempo' ? exito : c === 'Vencido' ? peligro : c === 'Fuera de término' ? advertencia : colorMuted;
+        let fila = 0;
+
+        const estiloEstado = (estadoTexto: string): [string, string] => {
+          const e = estadoTexto.toLowerCase();
+          if (e.includes('respond')) return [this.colores.exitoFondo, this.colores.exitoTexto];
+          if (e.includes('proceso') || e.includes('trámite') || e.includes('tramite')) return [this.colores.advertenciaFondo, this.colores.advertenciaTexto];
+          if (e.includes('venc')) return [this.colores.peligroFondo, this.colores.peligroTexto];
+          return [this.colores.grisFondo, this.colores.grisTexto];
+        };
+
+        const estiloCumplimiento = (c: string): [string, string] => {
+          if (c === 'A tiempo') return [this.colores.exitoFondo, this.colores.exitoTexto];
+          if (c === 'En término') return [this.colores.advertenciaFondo, this.colores.advertenciaTexto];
+          if (c === 'Vencido' || c === 'Fuera de término') return [this.colores.peligroFondo, this.colores.peligroTexto];
+          return [this.colores.grisFondo, this.colores.grisTexto];
+        };
 
         for (const r of registros) {
-          if (doc.y + altoFila > doc.page.height - doc.page.margins.bottom) {
+          if (doc.y + altoFila > doc.page.height - 60) {
             doc.addPage();
             dibujarCabeceraTabla();
           }
 
+          if (fila % 2 === 0) {
+            doc.fillColor(this.colores.fondoSuave).rect(xInicial, doc.y, 495, altoFila).fill();
+          }
+          fila++;
+
           const cumplimiento = this.calcularCumplimiento(r);
-          const y = doc.y + 5;
+          const y = doc.y + (altoFila - 16) / 2;
           let x = xInicial;
 
-          const valores = [
-            truncar(r.radicado, 14),
-            truncar(r.tipoSolicitud, 16),
-            truncar(r.remitente, 20),
+          const valoresTexto = [
+            truncar(r.radicado, 12),
+            truncar(r.tipoSolicitud, 14),
+            truncar(r.remitente, 18),
             r.fechaRecibido ? new Date(r.fechaRecibido).toLocaleDateString('es-CO') : '—',
             r.fechaVencimiento ? new Date(r.fechaVencimiento).toLocaleDateString('es-CO') : '—',
-            truncar(r.estado, 12),
-            cumplimiento,
           ];
 
-          doc.fontSize(7.5).font('Helvetica');
-          valores.forEach((valor, i) => {
-            doc.fillColor(i === 6 ? colorCumplimiento(cumplimiento) : colorTexto);
-            doc.text(valor, x + 3, y, { width: columnas[i].ancho - 6 });
+          doc.fontSize(8).font('Helvetica');
+          valoresTexto.forEach((valor, i) => {
+            doc.fillColor(colorTexto);
+            doc.text(valor, x + 6, doc.y + (altoFila - 10) / 2, { width: columnas[i].ancho - 8 });
             x += columnas[i].ancho;
           });
 
-          doc.strokeColor(colorBorde).lineWidth(0.5).moveTo(xInicial, doc.y + altoFila - 3).lineTo(545, doc.y + altoFila - 3).stroke();
+          const [estadoBg, estadoFg] = estiloEstado(r.estado);
+          this.dibujarPildora(doc, r.estado, x + 4, y, estadoBg, estadoFg);
+          x += columnas[5].ancho;
+
+          const [cumpleBg, cumpleFg] = estiloCumplimiento(cumplimiento);
+          this.dibujarPildora(doc, cumplimiento, x + 4, y, cumpleBg, cumpleFg);
+
+          doc.x = xInicial;
           doc.y += altoFila;
         }
       }
 
-      doc.moveDown(1.5);
-      doc.strokeColor(colorBorde).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
-      doc.moveDown(0.5);
-      doc
-        .fillColor(colorMuted)
-        .fontSize(8)
-        .font('Helvetica')
-        .text(
-          'Documento generado automáticamente por el Sistema de Gestión de Correspondencia. ' +
-          'El cumplimiento de términos se calcula con base en el plazo legal de respuesta de cada tipo de solicitud.',
-          { width: 495 },
-        );
-
+      this.dibujarPiesDePagina(doc);
       doc.end();
     });
   }

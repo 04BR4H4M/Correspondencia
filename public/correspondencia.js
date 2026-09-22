@@ -1239,7 +1239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tipoSolicitud = document.getElementById('periodoFiltroTipo').value;
     const estado = document.getElementById('periodoFiltroEstado').value;
 
-    let url = `${API_BASE}/informes/periodo-pdf?desde=${desde}&hasta=${hasta}&titulo=${encodeURIComponent(titulo)}`;
+    let url = `${API_BASE}/informes/periodo-excel?desde=${desde}&hasta=${hasta}&titulo=${encodeURIComponent(titulo)}`;
     if (tipoSolicitud) url += `&tipoSolicitud=${encodeURIComponent(tipoSolicitud)}`;
     if (estado) url += `&estado=${encodeURIComponent(estado)}`;
 
