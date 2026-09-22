@@ -7,6 +7,7 @@ import * as handlebars from 'handlebars';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import * as PDFDocument from 'pdfkit';
+import * as ExcelJS from 'exceljs';
 
 import {
   Correspondencia,
@@ -469,20 +470,20 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
     doc
       .fillColor(this.colores.primario)
       .font('Helvetica-Bold')
-      .fontSize(18)
-      .text('CONCEJO MUNICIPAL DE NILO', margenX + 78, 42, { width: 270 });
+      .fontSize(14)
+      .text('CONCEJO MUNICIPAL DE NILO', margenX + 78, 44, { width: 280, lineBreak: false });
 
     doc
       .fillColor(this.colores.primario)
       .font('Helvetica-Bold')
       .fontSize(11)
-      .text('Cundinamarca', margenX + 78, 65, { width: 270 });
+      .text('Cundinamarca', margenX + 78, 64, { width: 280, lineBreak: false });
 
     doc
       .fillColor(this.colores.muted)
       .font('Helvetica')
       .fontSize(9.5)
-      .text('Sistema de Gestión de Correspondencia', margenX + 78, 83, { width: 270 });
+      .text('Sistema de Gestión de Correspondencia', margenX + 78, 82, { width: 280, lineBreak: false });
 
     doc
       .strokeColor(this.colores.borde)
@@ -751,6 +752,12 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
       const alto = 32;
       const y = doc.page.height - alto;
 
+      // El pie va DENTRO del margen inferior de la página a propósito. Sin este ajuste,
+      // PDFKit detecta que el texto cae más allá del margen "imprimible" y agrega
+      // automáticamente una página en blanco extra antes de dibujarlo.
+      const margenInferiorOriginal = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0;
+
       doc.rect(0, y, doc.page.width, alto).fill(this.colores.primario);
 
       doc
@@ -759,6 +766,7 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
         .fontSize(8.5)
         .text('Concejo Municipal de Nilo - Sistema de Gestión de Correspondencia', 20, y + 11, {
           width: 350,
+          lineBreak: false,
         });
 
       doc
@@ -768,7 +776,10 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
         .text(`Página ${i - rango.start + 1} de ${rango.count}`, doc.page.width - 170, y + 11, {
           width: 150,
           align: 'right',
+          lineBreak: false,
         });
+
+      doc.page.margins.bottom = margenInferiorOriginal;
     }
   }
 
@@ -884,220 +895,134 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
 
     const registros = await queryBuilder.orderBy('c.fechaRecibido', 'ASC').getMany();
 
-    const { texto: colorTexto, muted: colorMuted, borde: colorBorde, exito, advertencia, peligro } = this.colores;
+    const porTipo = new Map<string, number>();
+    let aTiempo = 0, fueraDeTermino = 0, vencidos = 0, enTermino = 0, sinTermino = 0;
 
-    return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
-      const chunks: Buffer[] = [];
+    for (const r of registros) {
+      porTipo.set(r.tipoSolicitud, (porTipo.get(r.tipoSolicitud) || 0) + 1);
+      const cumplimiento = this.calcularCumplimiento(r);
+      if (cumplimiento === 'A tiempo') aTiempo++;
+      else if (cumplimiento === 'Fuera de término') fueraDeTermino++;
+      else if (cumplimiento === 'Vencido') vencidos++;
+      else if (cumplimiento === 'En término') enTermino++;
+      else sinTermino++;
+    }
 
-      doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
+    const AZUL_INSTITUCIONAL = 'FF1B4B8C';
+    const GRIS_CLARO = 'FFF8FAFC';
+    const VERDE = 'FFE7F7ED';
+    const AMBAR = 'FFFEF6E4';
+    const ROJO = 'FFFDECEC';
+    const BLANCO = 'FFFFFFFF';
 
-      const filtrosTexto: string[] = [];
-      if (tipoSolicitud) filtrosTexto.push(`Tipo: ${tipoSolicitud}`);
-      if (estado) filtrosTexto.push(`Estado: ${estado}`);
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Sistema de Gestión de Correspondencia';
+    workbook.created = new Date();
 
-      this.dibujarEncabezadoPdf(
-        doc,
-        'Informe de gestión y cumplimiento',
-        [tituloPeriodo, ...filtrosTexto].join(' · '),
-      );
+    // ================= HOJA 1: RESUMEN =================
+    const resumen = workbook.addWorksheet('Resumen');
+    resumen.columns = [{ width: 36 }, { width: 18 }];
 
-      // --- Conteos ---
-      const porTipo = new Map<string, number>();
-      let aTiempo = 0, fueraDeTermino = 0, vencidos = 0, enTermino = 0, sinTermino = 0;
+    const filaTitulo = resumen.addRow(['Concejo Municipal de Nilo']);
+    filaTitulo.getCell(1).font = { bold: true, size: 14, color: { argb: AZUL_INSTITUCIONAL } };
+    resumen.addRow(['Sistema de Gestión de Correspondencia · Cundinamarca']).getCell(1).font = { size: 9, color: { argb: 'FF64748B' } };
+    resumen.addRow([]);
 
-      for (const r of registros) {
-        porTipo.set(r.tipoSolicitud, (porTipo.get(r.tipoSolicitud) || 0) + 1);
-        const cumplimiento = this.calcularCumplimiento(r);
-        if (cumplimiento === 'A tiempo') aTiempo++;
-        else if (cumplimiento === 'Fuera de término') fueraDeTermino++;
-        else if (cumplimiento === 'Vencido') vencidos++;
-        else if (cumplimiento === 'En término') enTermino++;
-        else sinTermino++;
-      }
+    const filaPeriodo = resumen.addRow([`Informe de gestión — ${tituloPeriodo}`]);
+    filaPeriodo.getCell(1).font = { bold: true, size: 12, color: { argb: AZUL_INSTITUCIONAL } };
 
-      this.dibujarTituloSeccion(doc, 'Resumen ejecutivo');
+    const filtrosTexto: string[] = [];
+    if (tipoSolicitud) filtrosTexto.push(`Tipo: ${tipoSolicitud}`);
+    if (estado) filtrosTexto.push(`Estado: ${estado}`);
+    if (filtrosTexto.length) {
+      resumen.addRow([`Filtros aplicados — ${filtrosTexto.join(' · ')}`]).getCell(1).font = { italic: true, size: 9, color: { argb: 'FF64748B' } };
+    }
+    resumen.addRow([`Generado el ${this.formatearFechaPdf(new Date())}`]).getCell(1).font = { size: 9, color: { argb: 'FF64748B' } };
+    resumen.addRow([]);
 
-      // --- Tarjetas KPI ---
-      const cardWidth = 110;
-      const cardHeight = 100;
-      const gap = 12;
-      const startX = 50;
-      const startY = doc.y;
+    const filaTotal = resumen.addRow(['Total de radicados en el periodo', registros.length]);
+    filaTotal.font = { bold: true, size: 11 };
+    resumen.addRow([]);
 
-      const tarjetas: {
-        titulo: string;
-        valor: number;
-        colorFondo: string;
-        colorIcono: string;
-        icono: 'total' | 'check' | 'reloj' | 'x';
-      }[] = [
-        { titulo: 'Total', valor: registros.length, colorFondo: this.colores.infoFondo, colorIcono: this.colores.info, icono: 'total' },
-        { titulo: 'A tiempo', valor: aTiempo, colorFondo: this.colores.exitoFondo, colorIcono: this.colores.exito, icono: 'check' },
-        { titulo: 'En trámite', valor: enTermino, colorFondo: this.colores.advertenciaFondo, colorIcono: this.colores.advertencia, icono: 'reloj' },
-        { titulo: 'Vencidos', valor: vencidos, colorFondo: this.colores.peligroFondo, colorIcono: this.colores.peligro, icono: 'x' },
-      ];
-
-      tarjetas.forEach((card, index) => {
-        const x = startX + index * (cardWidth + gap);
-        this.dibujarTarjetaKpi(doc, x, startY, cardWidth, cardHeight, card.titulo, card.valor, card.colorFondo, card.colorIcono, card.icono);
-      });
-
-      doc.x = startX;
-      doc.y = startY + cardHeight + 22;
-
-      // --- Resumen automático (bullets) ---
-      const porcentajeTiempo = registros.length > 0 ? ((aTiempo / registros.length) * 100).toFixed(1) : '0';
-
-      const bullet = (texto: string, colorResaltado?: string) => {
-        doc.x = 50;
-        const y = doc.y;
-        doc.fillColor(this.colores.texto).font('Helvetica-Bold').fontSize(10).text('•', 50, y, { width: 12 });
-        doc.fillColor(colorResaltado || this.colores.texto).font('Helvetica').fontSize(9.5).text(texto, 64, y, { width: 481 });
-        doc.x = 50;
-        doc.moveDown(0.5);
-      };
-
-      bullet(`Durante el periodo evaluado se registraron ${registros.length} solicitudes de correspondencia.`);
-      bullet(`${aTiempo} solicitudes fueron atendidas dentro de los términos legales (${porcentajeTiempo}%).`);
-      if (vencidos > 0) {
-        doc.fillColor(this.colores.peligroTexto).font('Helvetica-Bold').fontSize(9.5);
-        bullet(`Se identificaron ${vencidos} solicitudes vencidas pendientes de respuesta.`, this.colores.peligroTexto);
-      }
-
-      doc.x = 50;
-      doc.moveDown(0.4);
-
-      // --- Gráfico de torta + Cumplimiento (dos columnas) ---
-      const colAncho = (495 - 24) / 2;
-      const colY = doc.y;
-      const colAlto = 190;
-
-      const paletaTipos = ['#2563EB', '#8B5CF6', '#16A34A', '#F5A623', '#EF4444', '#0EA5E9', '#64748b'];
-      const segmentosTipo = [...porTipo.entries()].map(([etiqueta, valor], i) => ({
-        etiqueta,
-        valor,
-        color: paletaTipos[i % paletaTipos.length],
-      }));
-
-      this.dibujarGraficoTorta(doc, 50, colY, colAncho, colAlto, 'Distribución por tipo de solicitud', segmentosTipo);
-
-      this.dibujarTarjetaCumplimiento(
-        doc,
-        50 + colAncho + 24,
-        colY,
-        colAncho,
-        colAlto,
-        [
-          { etiqueta: 'Respondidos a tiempo', cantidad: aTiempo, color: this.colores.exito, colorTexto: '#ffffff' },
-          { etiqueta: 'Respondidos fuera de término', cantidad: fueraDeTermino, color: this.colores.peligro, colorTexto: '#ffffff' },
-          { etiqueta: 'Vencidos sin respuesta', cantidad: vencidos, color: this.colores.peligro, colorTexto: '#ffffff' },
-          { etiqueta: 'En trámite dentro del término', cantidad: enTermino, color: this.colores.advertencia, colorTexto: '#ffffff' },
-          { etiqueta: 'Sin término legal aplicable', cantidad: sinTermino, color: this.colores.grisTexto, colorTexto: '#ffffff' },
-        ],
-        registros.length,
-      );
-
-      doc.y = colY + colAlto + 20;
-
-      // --- Detalle ---
-      if (registros.length > 0) {
-        doc.addPage();
-        this.dibujarEncabezadoSubseccion(doc, 'Detalle de radicados');
-
-        const columnas = [
-          { titulo: 'Radicado', ancho: 60 },
-          { titulo: 'Tipo', ancho: 75 },
-          { titulo: 'Remitente', ancho: 95 },
-          { titulo: 'Recibido', ancho: 58 },
-          { titulo: 'Vencimiento', ancho: 62 },
-          { titulo: 'Estado', ancho: 72 },
-          { titulo: 'Cumple', ancho: 73 },
-        ];
-        const xInicial = 50;
-        const altoFila = 26;
-
-        const truncar = (texto: string, maxCaracteres: number) =>
-          texto && texto.length > maxCaracteres ? texto.slice(0, maxCaracteres - 1) + '…' : (texto || '');
-
-        const dibujarCabeceraTabla = () => {
-          let x = xInicial;
-          doc.roundedRect(xInicial, doc.y, 495, 24, 4).fill(this.colores.primario);
-          doc.fillColor('#ffffff').fontSize(7.5).font('Helvetica-Bold');
-          const y = doc.y + 8;
-          for (const col of columnas) {
-            doc.text(col.titulo.toUpperCase(), x + 6, y, { width: col.ancho - 6 });
-            x += col.ancho;
-          }
-          doc.x = xInicial;
-          doc.y += 24;
-        };
-
-        dibujarCabeceraTabla();
-
-        let fila = 0;
-
-        const estiloEstado = (estadoTexto: string): [string, string] => {
-          const e = estadoTexto.toLowerCase();
-          if (e.includes('respond')) return [this.colores.exitoFondo, this.colores.exitoTexto];
-          if (e.includes('proceso') || e.includes('trámite') || e.includes('tramite')) return [this.colores.advertenciaFondo, this.colores.advertenciaTexto];
-          if (e.includes('venc')) return [this.colores.peligroFondo, this.colores.peligroTexto];
-          return [this.colores.grisFondo, this.colores.grisTexto];
-        };
-
-        const estiloCumplimiento = (c: string): [string, string] => {
-          if (c === 'A tiempo') return [this.colores.exitoFondo, this.colores.exitoTexto];
-          if (c === 'En término') return [this.colores.advertenciaFondo, this.colores.advertenciaTexto];
-          if (c === 'Vencido' || c === 'Fuera de término') return [this.colores.peligroFondo, this.colores.peligroTexto];
-          return [this.colores.grisFondo, this.colores.grisTexto];
-        };
-
-        for (const r of registros) {
-          if (doc.y + altoFila > doc.page.height - 60) {
-            doc.addPage();
-            dibujarCabeceraTabla();
-          }
-
-          if (fila % 2 === 0) {
-            doc.fillColor(this.colores.fondoSuave).rect(xInicial, doc.y, 495, altoFila).fill();
-          }
-          fila++;
-
-          const cumplimiento = this.calcularCumplimiento(r);
-          const y = doc.y + (altoFila - 16) / 2;
-          let x = xInicial;
-
-          const valoresTexto = [
-            truncar(r.radicado, 12),
-            truncar(r.tipoSolicitud, 14),
-            truncar(r.remitente, 18),
-            r.fechaRecibido ? new Date(r.fechaRecibido).toLocaleDateString('es-CO') : '—',
-            r.fechaVencimiento ? new Date(r.fechaVencimiento).toLocaleDateString('es-CO') : '—',
-          ];
-
-          doc.fontSize(8).font('Helvetica');
-          valoresTexto.forEach((valor, i) => {
-            doc.fillColor(colorTexto);
-            doc.text(valor, x + 6, doc.y + (altoFila - 10) / 2, { width: columnas[i].ancho - 8 });
-            x += columnas[i].ancho;
-          });
-
-          const [estadoBg, estadoFg] = estiloEstado(r.estado);
-          this.dibujarPildora(doc, r.estado, x + 4, y, estadoBg, estadoFg);
-          x += columnas[5].ancho;
-
-          const [cumpleBg, cumpleFg] = estiloCumplimiento(cumplimiento);
-          this.dibujarPildora(doc, cumplimiento, x + 4, y, cumpleBg, cumpleFg);
-
-          doc.x = xInicial;
-          doc.y += altoFila;
-        }
-      }
-
-      this.dibujarPiesDePagina(doc);
-      doc.end();
+    resumen.addRow(['Por tipo de solicitud']).getCell(1).font = { bold: true, size: 11 };
+    const encabezadoTipo = resumen.addRow(['Tipo', 'Cantidad']);
+    encabezadoTipo.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: BLANCO } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_INSTITUCIONAL } };
     });
+    if (porTipo.size === 0) {
+      resumen.addRow(['No se encontraron radicados en este periodo.', '']);
+    }
+    for (const [tipo, cantidad] of porTipo.entries()) {
+      resumen.addRow([tipo, cantidad]);
+    }
+    resumen.addRow([]);
+
+    resumen.addRow(['Cumplimiento de términos']).getCell(1).font = { bold: true, size: 11 };
+    const encabezadoCump = resumen.addRow(['Categoría', 'Cantidad']);
+    encabezadoCump.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: BLANCO } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_INSTITUCIONAL } };
+    });
+
+    const filasCumplimiento: [string, number, string][] = [
+      ['Respondidos a tiempo', aTiempo, VERDE],
+      ['Respondidos fuera de término', fueraDeTermino, AMBAR],
+      ['Vencidos sin responder', vencidos, ROJO],
+      ['En trámite, dentro del término', enTermino, BLANCO],
+      ['Sin término legal (sugerencias, invitaciones, etc.)', sinTermino, GRIS_CLARO],
+    ];
+    for (const [etiqueta, cantidad, color] of filasCumplimiento) {
+      const fila = resumen.addRow([etiqueta, cantidad]);
+      fila.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
+      });
+    }
+
+    // ================= HOJA 2: DETALLE =================
+    const detalle = workbook.addWorksheet('Detalle');
+    detalle.columns = [
+      { header: 'Radicado', key: 'radicado', width: 18 },
+      { header: 'Tipo', key: 'tipo', width: 20 },
+      { header: 'Remitente', key: 'remitente', width: 28 },
+      { header: 'Correo', key: 'correo', width: 28 },
+      { header: 'Fecha recibido', key: 'recibido', width: 16 },
+      { header: 'Fecha vencimiento', key: 'vencimiento', width: 16 },
+      { header: 'Fecha contestación', key: 'contestacion', width: 18 },
+      { header: 'Estado', key: 'estado', width: 14 },
+      { header: 'Cumplimiento', key: 'cumplimiento', width: 20 },
+      { header: 'Asunto', key: 'asunto', width: 45 },
+    ];
+
+    detalle.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: BLANCO } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_INSTITUCIONAL } };
+    });
+    detalle.views = [{ state: 'frozen', ySplit: 1 }];
+    detalle.autoFilter = { from: 'A1', to: 'J1' };
+
+    const colorCumplimiento = (c: string) =>
+      c === 'A tiempo' ? VERDE : c === 'Vencido' ? ROJO : c === 'Fuera de término' ? AMBAR : c === 'En término' ? BLANCO : GRIS_CLARO;
+
+    for (const r of registros) {
+      const cumplimiento = this.calcularCumplimiento(r);
+      const fila = detalle.addRow({
+        radicado: r.radicado,
+        tipo: r.tipoSolicitud,
+        remitente: r.remitente,
+        correo: r.correoRemitente || '',
+        recibido: r.fechaRecibido ? new Date(r.fechaRecibido).toLocaleDateString('es-CO') : '',
+        vencimiento: r.fechaVencimiento ? new Date(r.fechaVencimiento).toLocaleDateString('es-CO') : '',
+        contestacion: r.fechaContestacion ? new Date(r.fechaContestacion).toLocaleDateString('es-CO') : '',
+        estado: r.estado,
+        cumplimiento,
+        asunto: r.asunto,
+      });
+      fila.getCell('cumplimiento').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colorCumplimiento(cumplimiento) } };
+      fila.getCell('cumplimiento').font = { bold: true };
+    }
+
+    const arrayBuffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(arrayBuffer);
   }
 }
