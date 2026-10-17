@@ -50,7 +50,91 @@ export class CorrespondenciaService {
       nuevaCorrespondencia.tipoSolicitud,
     );
 
-    return this.correspondenciaRepository.save(nuevaCorrespondencia);
+    const guardado = await this.correspondenciaRepository.save(nuevaCorrespondencia);
+
+    // El correo de confirmación no debe bloquear ni hacer fallar la radicación si el
+    // envío falla (problema de SMTP, etc.) — por eso no se usa "await" aquí, solo se
+    // deja el error en el log del servidor.
+    if (guardado.correoRemitente) {
+      this.enviarConfirmacionRadicacion(guardado).catch((error) => {
+        console.error('No se pudo enviar el correo de confirmación de radicado:', error);
+      });
+    }
+
+    return guardado;
+  }
+
+  /** Construye el link público de consulta de un radicado (radicado + correo precargados). */
+  private construirUrlConsulta(radicado: string, correo: string): string {
+    const base = process.env.APP_PUBLIC_URL || 'http://localhost:3000';
+    return `${base}/consulta.html?radicado=${encodeURIComponent(radicado)}&correo=${encodeURIComponent(correo)}`;
+  }
+
+  /** Envía al remitente la confirmación de que su solicitud fue radicada, con el número de radicado y el link de consulta pública. */
+  private async enviarConfirmacionRadicacion(registro: Correspondencia) {
+    if (!registro.correoRemitente) return;
+
+    const transporter = await this.configuracionService.getTransporter();
+    const from = await this.configuracionService.getFromAddress();
+    const urlConsulta = this.construirUrlConsulta(registro.radicado, registro.correoRemitente);
+
+    const mensajeTexto =
+      `Su solicitud: ${registro.asunto}\n\n` +
+      `ha sido recibida y tiene asignado el radicado ${registro.radicado}.\n\n` +
+      `Puede consultar el estado de su trámite en cualquier momento, en el siguiente enlace:\n${urlConsulta}\n\n` +
+      `Conserve este número de radicado para futuras consultas.`;
+
+    const mensajeHtml = `
+      <div style="font-family:Arial,sans-serif; font-size:14px; color:#0f172a; line-height:1.6;">
+        <p>Su solicitud: <strong>${this.escaparHtml(registro.asunto)}</strong></p>
+        <p>ha sido recibida y tiene asignado el radicado <strong>${this.escaparHtml(registro.radicado)}</strong>.</p>
+        <p>Puede consultar el estado de su trámite en cualquier momento, en el siguiente enlace:</p>
+        <p><a href="${urlConsulta}">${urlConsulta}</a></p>
+        <p style="color:#64748b; font-size:12px;">Conserve este número de radicado para futuras consultas.</p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from,
+      to: registro.correoRemitente,
+      subject: `Confirmación de recepción - Radicado ${registro.radicado}`,
+      text: mensajeTexto,
+      html: mensajeHtml,
+    });
+  }
+
+  /**
+   * Consulta pública (sin login) del estado de un radicado. Exige que el radicado Y el
+   * correo coincidan exactamente — es la única "autenticación" de este endpoint, así que
+   * el mensaje de error es siempre el mismo genérico, sin importar cuál de los dos falló
+   * (evita que alguien use el error para adivinar si un radicado existe o no).
+   */
+  async consultarPublico(radicado: string, correo: string) {
+    const registro = await this.correspondenciaRepository.findOneBy({ radicado });
+
+    if (
+      !registro ||
+      !registro.correoRemitente ||
+      registro.correoRemitente.trim().toLowerCase() !== correo.trim().toLowerCase()
+    ) {
+      throw new NotFoundException(
+        'No encontramos ninguna solicitud con ese número de radicado y ese correo electrónico. Verifica que ambos datos sean exactamente los que usaste al radicar.',
+      );
+    }
+
+    const respondido = registro.estado === EstadoSolicitud.RESPONDIDO;
+
+    return {
+      radicado: registro.radicado,
+      tipoSolicitud: registro.tipoSolicitud,
+      asunto: registro.asunto,
+      estado: registro.estado,
+      fechaRecibido: registro.fechaRecibido,
+      fechaVencimiento: registro.fechaVencimiento,
+      fechaContestacion: registro.fechaContestacion,
+      respuestaMensaje: respondido ? registro.respuestaMensaje : null,
+      archivoRespuesta: respondido ? registro.archivoRespuesta : null,
+    };
   }
 
   async findAll(
@@ -385,7 +469,7 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
   private colores = {
     texto: '#0f172a',
     muted: '#64748b',
-    primario: '#1B4B8C',
+    primario: '#f90808',
     primarioOscuro: '#12335F',
     borde: '#e2e8f0',
     fondoSuave: '#f8fafc',
@@ -398,7 +482,7 @@ async update(id: number, updateCorrespondenciaDto: UpdateCorrespondenciaDto): Pr
     peligro: '#EF4444',
     peligroFondo: '#FDECEC',
     peligroTexto: '#B91C1C',
-    info: '#2563EB',
+    info: '#1e60ed',
     infoFondo: '#EAF2FD',
     grisFondo: '#F1F5F9',
     grisTexto: '#64748b',

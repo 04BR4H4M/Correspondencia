@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Consulta tu solicitud · Concejo Municipal de Nilo</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink-900: #0f172a;
+      --ink-800: #17223b;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-soft: #e8f0fe;
+      --bg: #eef1f6;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --success: #059669;
+      --success-soft: #e1f5ee;
+      --warning: #d97706;
+      --warning-soft: #fdf1e0;
+      --danger: #dc2626;
+      --danger-soft: #fce8e8;
+      --radius: 16px;
+      --shadow: 0 1px 2px rgba(15,23,42,.04), 0 20px 40px -16px rgba(15,23,42,.18);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(160deg, var(--ink-900), var(--ink-800) 55%, #1e3a6e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+    .wrap { width: 100%; max-width: 480px; }
+
+    .brand { display: flex; align-items: center; gap: .7rem; justify-content: center; margin-bottom: 1.4rem; }
+    .brand .mark {
+      width: 42px; height: 42px; border-radius: 11px;
+      background: linear-gradient(135deg, var(--primary), #60a5fa);
+      display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.1rem;
+      box-shadow: 0 6px 16px -4px rgba(37,99,235,.6);
+    }
+    .brand .name { color: #fff; font-weight: 800; font-size: 1.02rem; line-height: 1.25; }
+    .brand .place { color: #93a3c2; font-size: .76rem; }
+
+    .card {
+      background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 1.9rem 1.8rem; border: 1px solid rgba(255,255,255,.08);
+    }
+
+    h1 { font-size: 1.1rem; font-weight: 800; margin: 0 0 .25rem; color: var(--text); }
+    .subtitulo { font-size: .84rem; color: var(--text-muted); margin: 0 0 1.4rem; line-height: 1.5; }
+
+    label { font-size: .8rem; font-weight: 600; margin-bottom: .35rem; display: block; color: var(--text); }
+    .form-control {
+      width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: .6rem .8rem;
+      font-size: .9rem; outline: none; font-family: inherit; margin-bottom: 1rem;
+    }
+    .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+
+    .btn {
+      width: 100%; border: none; border-radius: 10px; padding: .72rem 1rem; font-weight: 700;
+      font-size: .9rem; cursor: pointer; background: var(--primary); color: #fff;
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+    }
+    .btn:hover { background: var(--primary-dark); }
+    .btn:disabled { opacity: .7; cursor: default; }
+
+    .spinner {
+      width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+      display: none; background: var(--danger-soft); color: var(--danger); border-radius: 10px;
+      padding: .75rem .9rem; font-size: .84rem; font-weight: 600; margin-bottom: 1rem; line-height: 1.5;
+    }
+    .error-box.show { display: block; }
+
+    #resultado { display: none; }
+    #resultado.show { display: block; }
+    #formulario.oculto { display: none; }
+
+    .resultado-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .badge-estado {
+      font-size: .74rem; font-weight: 700; padding: .3rem .7rem; border-radius: 20px;
+    }
+    .badge-recibido { background: var(--primary-soft); color: var(--primary-dark); }
+    .badge-proceso { background: var(--warning-soft); color: var(--warning); }
+    .badge-respondido { background: var(--success-soft); color: var(--success); }
+
+    .campo { margin-bottom: .9rem; }
+    .campo .etiqueta { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin-bottom: .2rem; }
+    .campo .valor { font-size: .92rem; color: var(--text); line-height: 1.5; }
+
+    .respuesta-box {
+      background: var(--success-soft); border-radius: 10px; padding: .9rem; margin-top: .4rem;
+      font-size: .86rem; color: #065f46; line-height: 1.6; white-space: pre-wrap;
+    }
+
+    .volver { text-align: center; margin-top: 1rem; }
+    .volver button {
+      background: none; border: none; color: var(--text-muted); font-size: .82rem; cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .pie { text-align: center; margin-top: 1.2rem; color: #93a3c2; font-size: .74rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark"><i class="fas fa-building-columns"></i></div>
+      <div>
+        <div class="name">Concejo Municipal de Nilo</div>
+        <div class="place">Cundinamarca</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="formulario">
+        <h1>Consulta el estado de tu solicitud</h1>
+        <p class="subtitulo">Ingresa el número de radicado y el correo que usaste al enviar tu solicitud.</p>
+
+        <div class="error-box" id="errorBox"></div>
+
+        <form id="form">
+          <label for="radicado">Número de radicado</label>
+          <input type="text" class="form-control" id="radicado" placeholder="Ej: RAD-2026-0142" required />
+
+          <label for="correo">Correo electrónico</label>
+          <input type="email" class="form-control" id="correo" placeholder="tu@correo.com" required />
+
+          <button type="submit" class="btn" id="btnConsultar">
+            <i class="fas fa-magnifying-glass"></i> Consultar
+          </button>
+        </form>
+      </div>
+
+      <div id="resultado">
+        <div class="resultado-header">
+          <span class="mono" id="resRadicado" style="font-weight:700; font-size:.95rem;"></span>
+          <span class="badge-estado" id="resBadge"></span>
+        </div>
+
+        <div class="campo">
+          <div class="etiqueta">Tipo de solicitud</div>
+          <div class="valor" id="resTipo"></div>
+        </div>
+        <div class="campo">
+          <div class="etiqueta">Asunto</div>
+          <div class="valor" id="resAsunto"></div>
+        </div>
+        <div class="campo">
+          <div class="etiqueta">Fecha de recibido</div>
+          <div class="valor" id="resRecibido"></div>
+        </div>
+        <div class="campo">
+          <div class="etiqueta">Fecha límite de respuesta</div>
+          <div class="valor" id="resVencimiento"></div>
+        </div>
+        <div class="campo" id="resContestacionWrap" style="display:none;">
+          <div class="etiqueta">Fecha de contestación</div>
+          <div class="valor" id="resContestacion"></div>
+        </div>
+
+        <div id="resRespuestaWrap" style="display:none;">
+          <div class="etiqueta" style="margin-top:1rem;">Respuesta</div>
+          <div class="respuesta-box" id="resRespuestaMensaje"></div>
+          <div class="campo" id="resArchivoWrap" style="display:none; margin-top:.6rem;">
+            <a id="resArchivoLink" href="#" target="_blank" style="color:var(--primary); font-size:.85rem; font-weight:600;">
+              <i class="fas fa-paperclip me-1"></i> Ver archivo de respuesta
+            </a>
+          </div>
+        </div>
+
+        <div class="volver">
+          <button type="button" id="btnVolver">Consultar otro radicado</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pie">Sistema de Gestión de Correspondencia</div>
+  </div>
+
+  <script>
+    const API_BASE = '/consulta-publica';
+
+    const formulario = document.getElementById('formulario');
+    const resultado = document.getElementById('resultado');
+    const errorBox = document.getElementById('errorBox');
+    const form = document.getElementById('form');
+    const btnConsultar = document.getElementById('btnConsultar');
+    const radicadoInput = document.getElementById('radicado');
+    const correoInput = document.getElementById('correo');
+
+    const ESTADOS = {
+      'Recibido': { clase: 'badge-recibido', texto: '📥 Recibido' },
+      'En Proceso': { clase: 'badge-proceso', texto: '⚙️ En Proceso' },
+      'Respondido': { clase: 'badge-respondido', texto: '✅ Respondido' },
+    };
+
+    function formatearFecha(fecha) {
+      if (!fecha) return 'No aplica';
+      const d = new Date(fecha);
+      return d.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function mostrarError(mensaje) {
+      errorBox.textContent = mensaje;
+      errorBox.classList.add('show');
+    }
+
+    function ocultarError() {
+      errorBox.classList.remove('show');
+    }
+
+    async function consultar(radicado, correo) {
+      ocultarError();
+      btnConsultar.disabled = true;
+      btnConsultar.innerHTML = '<div class="spinner"></div> Consultando...';
+
+      try {
+        const url = `${API_BASE}?radicado=${encodeURIComponent(radicado)}&correo=${encodeURIComponent(correo)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || 'No se pudo consultar la solicitud.');
+        }
+
+        renderizarResultado(data);
+        formulario.classList.add('oculto');
+        resultado.classList.add('show');
+      } catch (err) {
+        mostrarError(Array.isArray(err.message) ? err.message.join(' ') : err.message);
+      } finally {
+        btnConsultar.disabled = false;
+        btnConsultar.innerHTML = '<i class="fas fa-magnifying-glass"></i> Consultar';
+      }
+    }
+
+    function renderizarResultado(data) {
+      document.getElementById('resRadicado').textContent = data.radicado;
+
+      const estadoInfo = ESTADOS[data.estado] || { clase: 'badge-recibido', texto: data.estado };
+      const badge = document.getElementById('resBadge');
+      badge.className = 'badge-estado ' + estadoInfo.clase;
+      badge.textContent = estadoInfo.texto;
+
+      document.getElementById('resTipo').textContent = data.tipoSolicitud;
+      document.getElementById('resAsunto').textContent = data.asunto;
+      document.getElementById('resRecibido').textContent = formatearFecha(data.fechaRecibido);
+      document.getElementById('resVencimiento').textContent = formatearFecha(data.fechaVencimiento);
+
+      const contestacionWrap = document.getElementById('resContestacionWrap');
+      if (data.fechaContestacion) {
+        contestacionWrap.style.display = 'block';
+        document.getElementById('resContestacion').textContent = formatearFecha(data.fechaContestacion);
+      } else {
+        contestacionWrap.style.display = 'none';
+      }
+
+      const respuestaWrap = document.getElementById('resRespuestaWrap');
+      if (data.respuestaMensaje) {
+        respuestaWrap.style.display = 'block';
+        document.getElementById('resRespuestaMensaje').textContent = data.respuestaMensaje;
+
+        const archivoWrap = document.getElementById('resArchivoWrap');
+        if (data.archivoRespuesta) {
+          archivoWrap.style.display = 'block';
+          document.getElementById('resArchivoLink').href = data.archivoRespuesta;
+        } else {
+          archivoWrap.style.display = 'none';
+        }
+      } else {
+        respuestaWrap.style.display = 'none';
+      }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const radicado = radicadoInput.value.trim();
+      const correo = correoInput.value.trim();
+      if (!radicado || !correo) return;
+      consultar(radicado, correo);
+    });
+
+    document.getElementById('btnVolver').addEventListener('click', () => {
+      resultado.classList.remove('show');
+      formulario.classList.remove('oculto');
+      ocultarError();
+    });
+
+    // Prellenar y auto-consultar si vienen radicado y correo en la URL (link del correo de confirmación)
+    (function iniciar() {
+      const params = new URLSearchParams(window.location.search);
+      const radicado = params.get('radicado');
+      const correo = params.get('correo');
+      if (radicado) radicadoInput.value = radicado;
+      if (correo) correoInput.value = correo;
+      if (radicado && correo) {
+        consultar(radicado, correo);
+      }
+    })();
+  </script>
+</body>
+</html>

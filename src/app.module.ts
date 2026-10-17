@@ -11,6 +11,7 @@ import { CorrespondenciaModule } from './correspondencia/correspondencia.module'
 import { ConfiguracionModule } from './configuracion/configuracion.module';
 import { AuthModule } from './auth/auth.module';
 import { SolicitudesGmailModule } from './solicitudes-gmail/solicitudes-gmail.module';
+import { ConsultaPublicaModule } from './consulta-publica/consulta-publica.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -64,6 +65,7 @@ import { AppService } from './app.service';
     ConfiguracionModule,
     AuthModule,
     SolicitudesGmailModule,
+    ConsultaPublicaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
